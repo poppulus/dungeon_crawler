@@ -1,12 +1,19 @@
 #include "sdl_template.h"
 
+#define c_anim_idx(a, b) ((a * 3) + b)
+
 enum PlayerFacing
 {
-    UP, 
-    LEFT,
     DOWN, 
-    RIGHT
+    LEFT,
+    RIGHT, 
+    UP
 };
+
+typedef struct p_input
+{
+    int last, current;
+} p_input;
 
 typedef struct player
 {
@@ -14,10 +21,20 @@ typedef struct player
         x, y,
         face, dir,
         xvel, yvel;
+
+    p_input input;
+
+    unsigned char acounter, aindex;
+
+    bool moving;
 } player;
 
 typedef struct game
 {
+    SDL_Window **window;
+    SDL_Renderer **renderer;
+    Texture *texture;
+
     player *p;
 
     bool running;
@@ -26,4 +43,6 @@ typedef struct game
 void initClips(SDL_Rect *);
 
 void playInput(SDL_Event, game *);
-void updtPlyrPos(player *);
+void updatePlayer(player *);
+
+void renderPlayer(game, SDL_Rect *);

@@ -23,10 +23,17 @@ int main(int argc, char const *argv[])
         .dir = -1,
         .face = DOWN,
         .xvel = 0,
-        .yvel = 0
+        .yvel = 0,
+        .input = {.last = -1, .current = -1},
+        .moving = false,
+        .acounter = 0,
+        .aindex = 1
     };
 
     game GAME = {
+        .window = &window,
+        .renderer = &renderer,
+        .texture = &texture,
         .p = &player,
         .running = true
     };
@@ -48,9 +55,9 @@ int main(int argc, char const *argv[])
                 SDL_RenderClear(renderer);
 
                 playInput(e, &GAME);
-                updtPlyrPos(&player);
+                updatePlayer(&player);
 
-                renderTexture(renderer, &texture, player.x, player.y, &c_clips[0], false);
+                renderPlayer(GAME, c_clips);
 
                 // put it all on screen
                 SDL_RenderPresent(renderer);

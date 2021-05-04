@@ -127,20 +127,16 @@ void freeTexture(Texture *text)
 //
 void initClips(SDL_Rect *clips)
 {
-    clips[0].w = 16;
-    clips[0].h = 16;
-    clips[0].x = 48;
-    clips[0].y = 0;
+    int n = 0;
+    for (int i = 0; i < 12; i++)
+    {
+        clips[i].w = 16;
+        clips[i].h = 16;
+        clips[i].x = 48 + ((i % 3) * 16);
+        clips[i].y = n * 16;
 
-    clips[1].w = 16;
-    clips[1].h = 16;
-    clips[1].x = 64;
-    clips[1].y = 0;
-
-    clips[2].w = 16;
-    clips[2].h = 16;
-    clips[2].x = 80;
-    clips[2].y = 0;
+        if ((i % 3) == 2) n++;
+    }
 }
 
 void playInput(SDL_Event e, game *g)
@@ -155,46 +151,133 @@ void playInput(SDL_Event e, game *g)
                 {
                     case SDLK_ESCAPE: g->running = false; break;
                     case SDLK_UP:
-                        g->p->dir = UP;
+                        if (!e.key.repeat) 
+                        {
+                            g->p->input.last = g->p->input.current;
+                            g->p->input.current = UP;
+                            g->p->face = UP;
+                        }
                         break;
                     case SDLK_DOWN:
-                        g->p->dir = DOWN;
+                        if (!e.key.repeat) 
+                        {
+                            g->p->input.last = g->p->input.current;
+                            g->p->input.current = DOWN;
+                            g->p->face = DOWN;
+                        }
                         break;
                     case SDLK_LEFT:
-                        g->p->dir = LEFT;
+                        if (!e.key.repeat) 
+                        {
+                            g->p->input.last = g->p->input.current;
+                            g->p->input.current = LEFT;
+                            g->p->face = LEFT;
+                        }
                         break;
                     case SDLK_RIGHT:
-                        g->p->dir = RIGHT;
+                        if (!e.key.repeat) 
+                        {
+                            g->p->input.last = g->p->input.current;
+                            g->p->input.current = RIGHT;
+                            g->p->face = RIGHT;
+                        }
                         break;
-                    default:
-                    break;
                 }
             break;
             case SDL_KEYUP:
-                case SDLK_UP:
-                case SDLK_LEFT:
-                case SDLK_DOWN:
-                case SDLK_RIGHT:
-                    g->p->dir = -1;
-                break;
+                switch (e.key.keysym.sym)
+                {
+                    case SDLK_UP:
+                        if (g->p->input.last == UP) 
+                            g->p->input.last = -1;
+                        else 
+                        {
+                            g->p->input.current = g->p->input.last;
+                            if (g->p->input.last != -1) g->p->face = g->p->input.last;
+                        }
+                    break;
+                    case SDLK_LEFT:
+                        if (g->p->input.last == LEFT) 
+                            g->p->input.last = -1;
+                        else 
+                        {
+                            g->p->input.current = g->p->input.last; 
+                            if (g->p->input.last != -1) g->p->face = g->p->input.last;
+                        }
+                    break;
+                    case SDLK_DOWN:
+                        if (g->p->input.last == DOWN) 
+                            g->p->input.last = -1;
+                        else 
+                        {
+                            g->p->input.current = g->p->input.last;
+                            if (g->p->input.last != -1) g->p->face = g->p->input.last;
+                        }
+                    break;
+                    case SDLK_RIGHT:
+                        if (g->p->input.last == RIGHT) 
+                            g->p->input.last = -1;
+                        else 
+                        {
+                            g->p->input.current = g->p->input.last;
+                            if (g->p->input.last != -1) g->p->face = g->p->input.last;
+                        }
+                    break;
+                }
             break;
         }
     }
 }
 
-void updtPlyrPos(player *p)
+void updatePlayer(player *p)
 {
+    printf("c %d , l %d\n", p->input.current, p->input.last);
+
     p->xvel = 0;
     p->yvel = 0;
 
+    p->dir = p->input.current;
+    
     switch (p->dir)
     {
         case UP: p->yvel = -1; break;
-        case LEFT: p->xvel = -1;break;
+        case LEFT: p->xvel = -1; break;
         case DOWN: p->yvel = 1; break;
-        case RIGHT: p->xvel = 1;break;
+        case RIGHT: p->xvel = 1; break;
     }
 
+    if ((p->xvel != 0) || (p->yvel != 0)) 
+    {
+        p->moving = true;
+        p->acounter++;
+
+        if (p->acounter % 8 == 0)
+        {
+            p->aindex++;
+            p->aindex %= 3;
+        }
+        
+    }
+    else 
+    {
+        p->moving = false;
+        p->aindex = 1;
+    }
+
+    if (p->x + p->xvel < 0 || p->x + p->xvel + p->w > 640)
+    {
+        p->xvel = 0;
+    }
+    if (p->y + p->yvel < 0 || p->y + p->yvel + p->h > 480)
+    {
+        p->yvel = 0;
+    }
+    
     p->x += p->xvel;
     p->y += p->yvel;
+}
+
+void renderPlayer(game G, SDL_Rect *clips)
+{
+    renderTexture(*G.renderer, G.texture, G.p->x, G.p->y, &clips[c_anim_idx(G.p->face, G.p->aindex)], false);
 }
