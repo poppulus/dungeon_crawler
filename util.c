@@ -151,36 +151,16 @@ void playInput(SDL_Event e, game *g)
                 {
                     case SDLK_ESCAPE: g->running = false; break;
                     case SDLK_UP:
-                        if (!e.key.repeat) 
-                        {
-                            g->p->input.last = g->p->input.current;
-                            g->p->input.current = UP;
-                            g->p->face = UP;
-                        }
+                        if (!e.key.repeat) {enqueue(g->p->i_queue, UP); g->p->input[0] = 1;}
                         break;
                     case SDLK_DOWN:
-                        if (!e.key.repeat) 
-                        {
-                            g->p->input.last = g->p->input.current;
-                            g->p->input.current = DOWN;
-                            g->p->face = DOWN;
-                        }
+                        if (!e.key.repeat) {enqueue(g->p->i_queue, DOWN); g->p->input[2] = 1;}
                         break;
                     case SDLK_LEFT:
-                        if (!e.key.repeat) 
-                        {
-                            g->p->input.last = g->p->input.current;
-                            g->p->input.current = LEFT;
-                            g->p->face = LEFT;
-                        }
+                        if (!e.key.repeat) {enqueue(g->p->i_queue, LEFT); g->p->input[1] = 1;}
                         break;
                     case SDLK_RIGHT:
-                        if (!e.key.repeat) 
-                        {
-                            g->p->input.last = g->p->input.current;
-                            g->p->input.current = RIGHT;
-                            g->p->face = RIGHT;
-                        }
+                        if (!e.key.repeat) {enqueue(g->p->i_queue, RIGHT); g->p->input[3] = 1;}
                         break;
                 }
             break;
@@ -188,40 +168,16 @@ void playInput(SDL_Event e, game *g)
                 switch (e.key.keysym.sym)
                 {
                     case SDLK_UP:
-                        if (g->p->input.last == UP) 
-                            g->p->input.last = -1;
-                        else 
-                        {
-                            g->p->input.current = g->p->input.last;
-                            if (g->p->input.last != -1) g->p->face = g->p->input.last;
-                        }
+                        if (!e.key.repeat) {dequeue(g->p->i_queue, UP); g->p->input[0] = 0;}
                     break;
                     case SDLK_LEFT:
-                        if (g->p->input.last == LEFT) 
-                            g->p->input.last = -1;
-                        else 
-                        {
-                            g->p->input.current = g->p->input.last; 
-                            if (g->p->input.last != -1) g->p->face = g->p->input.last;
-                        }
+                        if (!e.key.repeat) {dequeue(g->p->i_queue, LEFT); g->p->input[1] = 0;}
                     break;
                     case SDLK_DOWN:
-                        if (g->p->input.last == DOWN) 
-                            g->p->input.last = -1;
-                        else 
-                        {
-                            g->p->input.current = g->p->input.last;
-                            if (g->p->input.last != -1) g->p->face = g->p->input.last;
-                        }
+                        if (!e.key.repeat) {dequeue(g->p->i_queue, DOWN); g->p->input[2] = 0;}
                     break;
                     case SDLK_RIGHT:
-                        if (g->p->input.last == RIGHT) 
-                            g->p->input.last = -1;
-                        else 
-                        {
-                            g->p->input.current = g->p->input.last;
-                            if (g->p->input.last != -1) g->p->face = g->p->input.last;
-                        }
+                        if (!e.key.repeat) {dequeue(g->p->i_queue, RIGHT); g->p->input[3] = 0;}
                     break;
                 }
             break;
@@ -231,13 +187,21 @@ void playInput(SDL_Event e, game *g)
 
 void updatePlayer(player *p)
 {
-    printf("c %d , l %d\n", p->input.current, p->input.last);
+    /*
+    printf("_ _ _ _\n");
+
+    for (int i = 0; i < 4; i++) printf(" %d ", p->i_queue[i]);
+
+    printf("\n_ _ _ _\n");
+    */
 
     p->xvel = 0;
     p->yvel = 0;
 
-    p->dir = p->input.current;
-    
+    p->dir = p->i_queue[0];
+
+    if (p->i_queue[0] != 255) p->face = p->i_queue[0];
+
     switch (p->dir)
     {
         case UP: p->yvel = -1; break;
@@ -256,7 +220,6 @@ void updatePlayer(player *p)
             p->aindex++;
             p->aindex %= 3;
         }
-        
     }
     else 
     {
@@ -264,11 +227,11 @@ void updatePlayer(player *p)
         p->aindex = 1;
     }
 
-    if (p->x + p->xvel < 0 || p->x + p->xvel + p->w > 640)
+    if (p->x + p->xvel <= 0 || p->x + p->xvel + p->w >= 640)
     {
         p->xvel = 0;
     }
-    if (p->y + p->yvel < 0 || p->y + p->yvel + p->h > 480)
+    if (p->y + p->yvel <= 0 || p->y + p->yvel + p->h >= 480)
     {
         p->yvel = 0;
     }
@@ -280,4 +243,28 @@ void updatePlayer(player *p)
 void renderPlayer(game G, SDL_Rect *clips)
 {
     renderTexture(*G.renderer, G.texture, G.p->x, G.p->y, &clips[c_anim_idx(G.p->face, G.p->aindex)], false);
+}
+
+void enqueue(unsigned char *q, unsigned char val)
+{
+    for (int i = 3; i > 0; i--)
+        q[i] = q[i - 1];
+    
+    q[0] = val;
+}
+
+void dequeue(unsigned char *q, unsigned char val)
+{
+    bool found = false;
+
+    for (int i = 0; i < 4; i++)
+    {
+        if (q[i] == val) 
+            found = true;
+
+        if (found && ((i + 1) < 4)) 
+            q[i] = q[i + 1];
+    }
+
+    q[3] = 255;
 }

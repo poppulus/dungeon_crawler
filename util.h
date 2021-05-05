@@ -22,9 +22,10 @@ typedef struct player
         face, dir,
         xvel, yvel;
 
-    p_input input;
+    unsigned char input[4];
 
-    unsigned char acounter, aindex;
+    unsigned char   acounter, aindex, 
+                    i_queue[4];
 
     bool moving;
 } player;
@@ -46,3 +47,6 @@ void playInput(SDL_Event, game *);
 void updatePlayer(player *);
 
 void renderPlayer(game, SDL_Rect *);
+
+void enqueue(unsigned char *q, unsigned char val);
+void dequeue(unsigned char *q, unsigned char val);

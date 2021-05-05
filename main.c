@@ -15,6 +15,28 @@ int main(int argc, char const *argv[])
     SDL_Event e;
     SDL_Rect c_clips[12];
 
+    SDL_Rect arrow_display[4] = {
+        [0].w = 20,
+        [0].h = 20,
+        [0].x = 320 - 20,
+        [0].y = 0, 
+
+        [1].w = 20,
+        [1].h = 20,
+        [1].x = 320 - 40,
+        [1].y = 20, 
+
+        [2].w = 20,
+        [2].h = 20,
+        [2].x = 320 - 20,
+        [2].y = 20, 
+
+        [3].w = 20,
+        [3].h = 20,
+        [3].x = 320,
+        [3].y = 20, 
+    };
+
     player player = {
         .w = 16,
         .h = 16,
@@ -24,10 +46,11 @@ int main(int argc, char const *argv[])
         .face = DOWN,
         .xvel = 0,
         .yvel = 0,
-        .input = {.last = -1, .current = -1},
+        .input = {0, 0, 0, 0},
         .moving = false,
         .acounter = 0,
-        .aindex = 1
+        .aindex = 1,
+        .i_queue = {255, 255 ,255 ,255}
     };
 
     game GAME = {
@@ -58,6 +81,24 @@ int main(int argc, char const *argv[])
                 updatePlayer(&player);
 
                 renderPlayer(GAME, c_clips);
+
+                SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
+
+                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[0]);
+                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[1]);
+                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[2]);
+                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[3]);
+
+                SDL_SetRenderDrawColor(renderer, 0x00, 0xff, 0x00, 0xff);
+
+                if (player.input[0])
+                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[0]);
+                if (player.input[1])
+                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[1]);
+                if (player.input[2])
+                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[2]);
+                if (player.input[3])
+                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[3]);
 
                 // put it all on screen
                 SDL_RenderPresent(renderer);
