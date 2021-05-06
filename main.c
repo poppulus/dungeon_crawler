@@ -15,29 +15,35 @@ int main(int argc, char const *argv[])
     SDL_Event e;
     SDL_Rect c_clips[12];
 
-    SDL_Rect arrow_display[4] = {
+    SDL_Rect arrow_display[5] = {
         [0].w = 20,
         [0].h = 20,
-        [0].x = 320 - 20,
+        [0].x = 320,
         [0].y = 0, 
 
         [1].w = 20,
         [1].h = 20,
-        [1].x = 320 - 40,
+        [1].x = 320 - 20,
         [1].y = 20, 
 
         [2].w = 20,
         [2].h = 20,
-        [2].x = 320 - 20,
+        [2].x = 320,
         [2].y = 20, 
 
         [3].w = 20,
         [3].h = 20,
-        [3].x = 320,
-        [3].y = 20, 
+        [3].x = 320 + 20,
+        [3].y = 20,
+
+        [4].w = 60,
+        [4].h = 20,
+        [4].x = 320 - 80,
+        [4].y = 20,
     };
 
     player player = {
+        .clips = (SDL_Rect *)&c_clips,
         .w = 16,
         .h = 16,
         .x = 320 - 16,
@@ -48,8 +54,11 @@ int main(int argc, char const *argv[])
         .yvel = 0,
         .input = {0, 0, 0, 0},
         .moving = false,
+        .attacking = false,
+        .a_hold = false,
         .acounter = 0,
         .aindex = 1,
+        .atk_counter = 0,
         .i_queue = {255, 255 ,255 ,255}
     };
 
@@ -77,10 +86,9 @@ int main(int argc, char const *argv[])
                 SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
                 SDL_RenderClear(renderer);
 
-                playInput(e, &GAME);
+                playerInput(e, &GAME);
                 updatePlayer(&player);
-
-                renderPlayer(GAME, c_clips);
+                renderPlayer(GAME);
 
                 SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
 
@@ -88,6 +96,7 @@ int main(int argc, char const *argv[])
                 SDL_RenderDrawRect(*GAME.renderer, &arrow_display[1]);
                 SDL_RenderDrawRect(*GAME.renderer, &arrow_display[2]);
                 SDL_RenderDrawRect(*GAME.renderer, &arrow_display[3]);
+                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[4]);
 
                 SDL_SetRenderDrawColor(renderer, 0x00, 0xff, 0x00, 0xff);
 
@@ -99,6 +108,8 @@ int main(int argc, char const *argv[])
                     SDL_RenderFillRect(*GAME.renderer, &arrow_display[2]);
                 if (player.input[3])
                     SDL_RenderFillRect(*GAME.renderer, &arrow_display[3]);
+                if (player.input[4])
+                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[4]);
 
                 // put it all on screen
                 SDL_RenderPresent(renderer);

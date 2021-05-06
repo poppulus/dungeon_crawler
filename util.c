@@ -139,7 +139,13 @@ void initClips(SDL_Rect *clips)
     }
 }
 
-void playInput(SDL_Event e, game *g)
+bool collision(SDL_Rect rect, int x, int y)
+{
+
+    return false;
+}
+
+void playerInput(SDL_Event e, game *g)
 {
     while (SDL_PollEvent(&e) != 0)
     {
@@ -150,34 +156,55 @@ void playInput(SDL_Event e, game *g)
                 switch (e.key.keysym.sym)
                 {
                     case SDLK_ESCAPE: g->running = false; break;
+                    case SDLK_SPACE:
+                        g->p->input[4] = 1;
+                        if (!e.key.repeat && !g->p->attacking && !g->p->a_hold) 
+                        {
+                            g->p->a_hold = true;
+                            enqueue(g->p->i_queue, ATTACK);
+                            g->p->attacking = true;
+                        }
+                    break;
                     case SDLK_UP:
-                        if (!e.key.repeat) {enqueue(g->p->i_queue, UP); g->p->input[0] = 1;}
-                        break;
+                        if (!e.key.repeat) 
+                        {enqueue(g->p->i_queue, UP); g->p->input[0] = 1;}
+                    break;
                     case SDLK_DOWN:
-                        if (!e.key.repeat) {enqueue(g->p->i_queue, DOWN); g->p->input[2] = 1;}
-                        break;
+                        if (!e.key.repeat) 
+                        {enqueue(g->p->i_queue, DOWN); g->p->input[2] = 1;}
+                    break;
                     case SDLK_LEFT:
-                        if (!e.key.repeat) {enqueue(g->p->i_queue, LEFT); g->p->input[1] = 1;}
-                        break;
+                        if (!e.key.repeat) 
+                        {enqueue(g->p->i_queue, LEFT); g->p->input[1] = 1;}
+                    break;
                     case SDLK_RIGHT:
-                        if (!e.key.repeat) {enqueue(g->p->i_queue, RIGHT); g->p->input[3] = 1;}
-                        break;
+                        if (!e.key.repeat) 
+                        {enqueue(g->p->i_queue, RIGHT); g->p->input[3] = 1;}
+                    break;
                 }
             break;
             case SDL_KEYUP:
                 switch (e.key.keysym.sym)
                 {
+                    case SDLK_SPACE: 
+                        g->p->input[4] = 0; 
+                        g->p->a_hold = false; 
+                    break;
                     case SDLK_UP:
-                        if (!e.key.repeat) {dequeue(g->p->i_queue, UP); g->p->input[0] = 0;}
+                        dequeue(g->p->i_queue, UP); 
+                        g->p->input[0] = 0;
                     break;
                     case SDLK_LEFT:
-                        if (!e.key.repeat) {dequeue(g->p->i_queue, LEFT); g->p->input[1] = 0;}
+                        dequeue(g->p->i_queue, LEFT); 
+                        g->p->input[1] = 0;
                     break;
                     case SDLK_DOWN:
-                        if (!e.key.repeat) {dequeue(g->p->i_queue, DOWN); g->p->input[2] = 0;}
+                        dequeue(g->p->i_queue, DOWN); 
+                        g->p->input[2] = 0;
                     break;
                     case SDLK_RIGHT:
-                        if (!e.key.repeat) {dequeue(g->p->i_queue, RIGHT); g->p->input[3] = 0;}
+                        dequeue(g->p->i_queue, RIGHT); 
+                        g->p->input[3] = 0;
                     break;
                 }
             break;
@@ -200,7 +227,7 @@ void updatePlayer(player *p)
 
     p->dir = p->i_queue[0];
 
-    if (p->i_queue[0] != 255) p->face = p->i_queue[0];
+    if (p->i_queue[0] != 255 && p->i_queue[0] != ATTACK) p->face = p->i_queue[0];
 
     switch (p->dir)
     {
@@ -210,6 +237,34 @@ void updatePlayer(player *p)
         case RIGHT: p->xvel = 1; break;
     }
 
+    animatePlayer(p);
+
+    if (p->x + p->xvel <= 0 || p->x + p->xvel + p->w >= 640)
+    {
+        p->xvel = 0;
+    }
+    if (p->y + p->yvel <= 0 || p->y + p->yvel + p->h >= 480)
+    {
+        p->yvel = 0;
+    }
+    
+    p->x += p->xvel;
+    p->y += p->yvel;
+}
+
+void animatePlayer(player *p)
+{
+    if (p->attacking)
+    {
+        p->atk_counter++;
+        if (p->atk_counter == 15)
+        {
+            p->atk_counter = 0;
+            dequeue(p->i_queue, ATTACK);
+            p->attacking = false;
+        }
+    }
+    
     if ((p->xvel != 0) || (p->yvel != 0)) 
     {
         p->moving = true;
@@ -226,28 +281,18 @@ void updatePlayer(player *p)
         p->moving = false;
         p->aindex = 1;
     }
-
-    if (p->x + p->xvel <= 0 || p->x + p->xvel + p->w >= 640)
-    {
-        p->xvel = 0;
-    }
-    if (p->y + p->yvel <= 0 || p->y + p->yvel + p->h >= 480)
-    {
-        p->yvel = 0;
-    }
     
-    p->x += p->xvel;
-    p->y += p->yvel;
 }
 
-void renderPlayer(game G, SDL_Rect *clips)
+void renderPlayer(game G)
 {
-    renderTexture(*G.renderer, G.texture, G.p->x, G.p->y, &clips[c_anim_idx(G.p->face, G.p->aindex)], false);
+
+    renderTexture(*G.renderer, G.texture, G.p->x, G.p->y, &G.p->clips[c_anim_idx(G.p->face, G.p->aindex)], false);
 }
 
 void enqueue(unsigned char *q, unsigned char val)
 {
-    for (int i = 3; i > 0; i--)
+    for (int i = Q_SIZE - 1; i > 0; i--)
         q[i] = q[i - 1];
     
     q[0] = val;
@@ -257,14 +302,14 @@ void dequeue(unsigned char *q, unsigned char val)
 {
     bool found = false;
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < Q_SIZE; i++)
     {
         if (q[i] == val) 
             found = true;
 
-        if (found && ((i + 1) < 4)) 
+        if (found && ((i + 1) < Q_SIZE)) 
             q[i] = q[i + 1];
     }
 
-    q[3] = 255;
+    q[Q_SIZE - 1] = 255;
 }
