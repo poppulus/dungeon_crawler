@@ -10,10 +10,12 @@ int main(int argc, char const *argv[])
 
     SDL_Window *window;
     SDL_Renderer *renderer;
-    Texture texture;
+    Texture c_texture;
+    Texture e_texture;
 
     SDL_Event e;
-    SDL_Rect c_clips[12];
+    SDL_Rect c_clips[21];
+    SDL_Rect e_clips[5]; // what do here
 
     SDL_Rect arrow_display[5] = {
         [0].w = 20,
@@ -44,10 +46,10 @@ int main(int argc, char const *argv[])
 
     player player = {
         .clips = (SDL_Rect *)&c_clips,
-        .w = 16,
-        .h = 16,
-        .x = 320 - 16,
-        .y = 240 - 16,
+        .w = 14,
+        .h = 30,
+        .x = 320 - 32,
+        .y = 240 - 32,
         .dir = -1,
         .face = DOWN,
         .xvel = 0,
@@ -56,16 +58,19 @@ int main(int argc, char const *argv[])
         .moving = false,
         .attacking = false,
         .a_hold = false,
+        .sprint = false,
         .acounter = 0,
         .aindex = 1,
         .atk_counter = 0,
-        .i_queue = {255, 255 ,255 ,255}
+        .i_queue = {255, 255 ,255 ,255},
+        .a_hitBox = {.w = 1, .h = 1, .x = player.x + 8, .y = player.y + 40}
     };
 
     game GAME = {
         .window = &window,
         .renderer = &renderer,
-        .texture = &texture,
+        .c_texture = &c_texture,
+        .e_texture = &e_texture,
         .p = &player,
         .running = true
     };
@@ -74,9 +79,11 @@ int main(int argc, char const *argv[])
 
     if (initSdl(&window, &renderer, W_WIDTH, W_HEIGHT))
     {
-        if (initTextureMap(&renderer, &texture, "assets/tiny16basic/characters.png"))
+        if (initTextureMap(&renderer, &c_texture, "assets/doomed_looters/warrior-Sheet.png"))
+        //& initTextureMap(&renderer, &e_texture, "assets/Rogue-Like-8x8/Enemies.png"))
         {
-            initClips(c_clips);
+            c_initClips(c_clips);
+            //e_initClips(e_clips);
 
             while (GAME.running)
             {
@@ -121,6 +128,7 @@ int main(int argc, char const *argv[])
         }
     }
 
-    freeTexture(&texture);
+    freeTexture(&c_texture);
+    freeTexture(&e_texture);
     return 0;
 }

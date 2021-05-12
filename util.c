@@ -125,17 +125,31 @@ void freeTexture(Texture *text)
 
 // game stuff
 //
-void initClips(SDL_Rect *clips)
+void c_initClips(SDL_Rect *clips)
 {
     int n = 0;
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 21; i++)
     {
-        clips[i].w = 16;
-        clips[i].h = 16;
-        clips[i].x = 48 + ((i % 3) * 16);
-        clips[i].y = n * 16;
+        clips[i].w = 32;
+        clips[i].h = 32;
+        clips[i].x = (i % 7) * 32;
+        clips[i].y = n * 32;
 
-        if ((i % 3) == 2) n++;
+        if ((i % 7) == 6) n++;
+    }
+}
+
+void e_initClips(SDL_Rect *clips)
+{
+    int n = 0;
+    for (int i = 0; i < 37; i++)
+    {
+        clips[i].w = 8;
+        clips[i].h = 8;
+        clips[i].x = (i % 5) * 8;
+        clips[i].y = n * 8;
+
+        if ((i % 5) == 4) n++;
     }
 }
 
@@ -160,10 +174,15 @@ void playerInput(SDL_Event e, game *g)
                         g->p->input[4] = 1;
                         if (!e.key.repeat && !g->p->attacking && !g->p->a_hold) 
                         {
+                            g->p->aindex = 0;
+
                             g->p->a_hold = true;
                             enqueue(g->p->i_queue, ATTACK);
                             g->p->attacking = true;
                         }
+                    break;
+                    case SDLK_LSHIFT: 
+                        if (!e.key.repeat) g->p->sprint = true; 
                     break;
                     case SDLK_UP:
                         if (!e.key.repeat) 
@@ -190,6 +209,7 @@ void playerInput(SDL_Event e, game *g)
                         g->p->input[4] = 0; 
                         g->p->a_hold = false; 
                     break;
+                    case SDLK_LSHIFT: g->p->sprint = false; break;
                     case SDLK_UP:
                         dequeue(g->p->i_queue, UP); 
                         g->p->input[0] = 0;
@@ -214,27 +234,40 @@ void playerInput(SDL_Event e, game *g)
 
 void updatePlayer(player *p)
 {
-    /*
-    printf("_ _ _ _\n");
-
-    for (int i = 0; i < 4; i++) printf(" %d ", p->i_queue[i]);
-
-    printf("\n_ _ _ _\n");
-    */
-
     p->xvel = 0;
     p->yvel = 0;
 
     p->dir = p->i_queue[0];
 
-    if (p->i_queue[0] != 255 && p->i_queue[0] != ATTACK) p->face = p->i_queue[0];
+    if ((p->i_queue[0] != 255) 
+    && (p->i_queue[0] != ATTACK) && !p->attacking) 
+        p->face = p->i_queue[0];
 
-    switch (p->dir)
+    if (!p->attacking)
     {
-        case UP: p->yvel = -1; break;
-        case LEFT: p->xvel = -1; break;
-        case DOWN: p->yvel = 1; break;
-        case RIGHT: p->xvel = 1; break;
+        switch (p->dir)
+        {
+            case UP: 
+                p->yvel = p->sprint ? -2 : -1;
+                p->a_hitBox.x = p->x + 7; 
+                p->a_hitBox.y = p->y;
+            break;
+            case LEFT: 
+                p->xvel = p->sprint ? -2 : -1;
+                p->a_hitBox.x = p->x; 
+                p->a_hitBox.y = p->y + 15;
+            break;
+            case DOWN: 
+                p->yvel = p->sprint ? 2 : 1; 
+                p->a_hitBox.x = p->x + 7; 
+                p->a_hitBox.y = p->y + p->h;
+            break;
+            case RIGHT: 
+                p->xvel = p->sprint ? 2 : 1; 
+                p->a_hitBox.x = p->x + p->w; 
+                p->a_hitBox.y = p->y + 15;
+            break;
+        }
     }
 
     animatePlayer(p);
@@ -256,38 +289,65 @@ void animatePlayer(player *p)
 {
     if (p->attacking)
     {
+        if (p->atk_counter % 6 == 0)
+        {
+            p->aindex++;
+            p->aindex = (p->aindex % 3) + 4;
+        }
+
         p->atk_counter++;
-        if (p->atk_counter == 15)
+
+        if (p->atk_counter > 15)
         {
             p->atk_counter = 0;
+            p->aindex = 0;
             dequeue(p->i_queue, ATTACK);
             p->attacking = false;
         }
     }
-    
-    if ((p->xvel != 0) || (p->yvel != 0)) 
-    {
-        p->moving = true;
-        p->acounter++;
-
-        if (p->acounter % 8 == 0)
-        {
-            p->aindex++;
-            p->aindex %= 3;
-        }
-    }
     else 
     {
-        p->moving = false;
-        p->aindex = 1;
+        p->acounter++;
+
+        if ((p->xvel != 0) || (p->yvel != 0)) 
+        {
+            if (p->sprint && (p->acounter % 6 == 0))
+            {
+                p->aindex++;
+                p->aindex = (p->aindex % 2) + 2;
+            }
+            else if (!p->sprint && (p->acounter % 8 == 0))
+            {
+                p->aindex++;
+                p->aindex = (p->aindex % 2) + 2;
+            }
+        }
+        else 
+        {
+            if (p->acounter % 16 == 0)
+            {
+                p->aindex++;
+                p->aindex %= 2;
+            }
+        }
     }
-    
 }
 
 void renderPlayer(game G)
 {
+    bool flip = (G.p->face == 3 ? true : false);
+    int c_index;
 
-    renderTexture(*G.renderer, G.texture, G.p->x, G.p->y, &G.p->clips[c_anim_idx(G.p->face, G.p->aindex)], false);
+    if (G.p->face == 3) c_index = (2 * 7) + G.p->aindex;
+    else c_index = (G.p->face * 7) + G.p->aindex;
+
+    renderTexture(*G.renderer, G.c_texture, G.p->x - 9, G.p->y - 1, &G.p->clips[c_index], flip);
+
+    if (G.p->attacking) 
+    {
+        SDL_SetRenderDrawColor(*G.renderer, 0x00, 0x00, 0x00, 0xff);
+        SDL_RenderFillRect(*G.renderer, &G.p->a_hitBox);
+    }
 }
 
 void enqueue(unsigned char *q, unsigned char val)

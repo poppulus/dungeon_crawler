@@ -1,15 +1,15 @@
 #include "sdl_template.h"
 
-#define c_anim_idx(a, b) ((a * 3) + b)
+#define c_anim_idx(a, b) ((a * 7) + b)
 #define Q_SIZE 5
 #define ATTACK 4
 
 enum PlayerFacing
 {
     DOWN, 
-    LEFT,
+    UP,
     RIGHT, 
-    UP
+    LEFT
 };
 
 typedef struct p_input
@@ -19,7 +19,7 @@ typedef struct p_input
 
 typedef struct player
 {
-    SDL_Rect *clips;
+    SDL_Rect *clips, a_hitBox;
 
     int w, h, 
         x, y,
@@ -32,21 +32,22 @@ typedef struct player
                     atk_counter, 
                     i_queue[Q_SIZE];
 
-    bool moving, attacking, a_hold;
+    bool moving, attacking, a_hold, sprint;
 } player;
 
 typedef struct game
 {
     SDL_Window **window;
     SDL_Renderer **renderer;
-    Texture *texture;
+    Texture *c_texture, *e_texture;
 
     player *p;
 
     bool running;
 } game;
 
-void initClips(SDL_Rect *);
+void c_initClips(SDL_Rect *);
+void e_initClips(SDL_Rect *);
 
 bool collision(SDL_Rect, int x, int y);
 
