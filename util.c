@@ -153,10 +153,26 @@ void e_initClips(SDL_Rect *clips)
     }
 }
 
-bool collision(SDL_Rect rect, int x, int y)
+bool collision(int x, int y, int x2, int y2)
 {
+    int leftA = x, 
+        leftB = x2, 
+        rightA = x + 20, 
+        rightB = x2, 
+        topA = y, 
+        topB = y2, 
+        bottomA = y + 20, 
+        bottomB = y2;
 
-    return false;
+    if(bottomA <= topB) return false;
+
+    if(topA >= bottomB) return false;
+
+    if(rightA <= leftB) return false;
+
+    if(leftA >= rightB) return false;
+
+    return true;
 }
 
 void playerInput(SDL_Event e, game *g)
@@ -174,8 +190,7 @@ void playerInput(SDL_Event e, game *g)
                         g->p->input[4] = 1;
                         if (!e.key.repeat && !g->p->attacking && !g->p->a_hold) 
                         {
-                            g->p->aindex = 0;
-
+                            g->p->aindex = 3;
                             g->p->a_hold = true;
                             enqueue(g->p->i_queue, ATTACK);
                             g->p->attacking = true;
@@ -272,15 +287,15 @@ void updatePlayer(player *p)
 
     animatePlayer(p);
 
-    if (p->x + p->xvel <= 0 || p->x + p->xvel + p->w >= 640)
+    if (p->x + p->xvel <= 0 || p->x + p->xvel >= 640)
     {
         p->xvel = 0;
     }
-    if (p->y + p->yvel <= 0 || p->y + p->yvel + p->h >= 480)
+    if (p->y + p->yvel <= 0 || p->y + p->yvel >= 480)
     {
         p->yvel = 0;
     }
-    
+
     p->x += p->xvel;
     p->y += p->yvel;
 }
@@ -289,20 +304,41 @@ void animatePlayer(player *p)
 {
     if (p->attacking)
     {
-        if (p->atk_counter % 6 == 0)
+        if (p->atk_counter % 5 == 0)
         {
             p->aindex++;
-            p->aindex = (p->aindex % 3) + 4;
+            switch (p->face)
+            {
+                case DOWN:
+                    p->rx = (p->x / 20);
+                    p->ry = (p->y / 20) + p->aindex;
+                break;
+                case UP:
+                    p->rx = (p->x / 20);
+                    p->ry = (p->y / 20) - p->aindex;
+                break;
+                case LEFT:
+                    p->rx = (p->x / 20) - p->aindex;
+                    p->ry = (p->y / 20);
+                break;
+                case RIGHT:
+                    p->rx = (p->x / 20) + p->aindex;
+                    p->ry = (p->y / 20);    
+                break;
+            }
         }
 
         p->atk_counter++;
 
-        if (p->atk_counter > 15)
+        if (p->atk_counter >= 15)
         {
             p->atk_counter = 0;
             p->aindex = 0;
             dequeue(p->i_queue, ATTACK);
             p->attacking = false;
+
+            p->rx = p->x / 20;
+            p->ry = p->y / 20;
         }
     }
     else 
@@ -341,7 +377,7 @@ void renderPlayer(game G)
     if (G.p->face == 3) c_index = (2 * 7) + G.p->aindex;
     else c_index = (G.p->face * 7) + G.p->aindex;
 
-    renderTexture(*G.renderer, G.c_texture, G.p->x - 9, G.p->y - 1, &G.p->clips[c_index], flip);
+    renderTexture(*G.renderer, G.c_texture, G.p->x - 16, G.p->y - 28, &G.p->clips[c_index], flip);
 
     if (G.p->attacking) 
     {

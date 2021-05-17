@@ -24,7 +24,8 @@ typedef struct player
     int w, h, 
         x, y,
         face, dir,
-        xvel, yvel;
+        xvel, yvel,
+        rx, ry;
 
     unsigned char input[Q_SIZE];
 
@@ -49,7 +50,7 @@ typedef struct game
 void c_initClips(SDL_Rect *);
 void e_initClips(SDL_Rect *);
 
-bool collision(SDL_Rect, int x, int y);
+bool collision(int x, int y, int x2, int y2);
 
 void playerInput(SDL_Event, game *);
 void updatePlayer(player *);

@@ -14,8 +14,17 @@ int main(int argc, char const *argv[])
     Texture e_texture;
 
     SDL_Event e;
-    SDL_Rect c_clips[21];
-    SDL_Rect e_clips[5]; // what do here
+    SDL_Rect c_clips[21]; // player/character clips
+    SDL_Rect e_clips[5]; // what do here ... - enemy clips
+
+    unsigned char map_blocks[24][32];
+
+    SDL_Rect block = {
+        .w = 20,
+        .h = 20,
+        .x = 0,
+        .y = 0
+    };
 
     SDL_Rect arrow_display[5] = {
         [0].w = 20,
@@ -44,12 +53,19 @@ int main(int argc, char const *argv[])
         [4].y = 20,
     };
 
+    SDL_Rect player_box = {
+        .w = 2, .h = 2, 
+        .x = 320 - 32, .y = 240 - 32
+    };
+
     player player = {
         .clips = (SDL_Rect *)&c_clips,
         .w = 14,
         .h = 30,
         .x = 320 - 32,
         .y = 240 - 32,
+        .rx = (320 - 32) / 20,
+        .ry = (240 - 32) / 20,
         .dir = -1,
         .face = DOWN,
         .xvel = 0,
@@ -84,6 +100,8 @@ int main(int argc, char const *argv[])
         {
             c_initClips(c_clips);
             //e_initClips(e_clips);
+            
+            memset(map_blocks, 0, (32 * 24));
 
             while (GAME.running)
             {
@@ -95,7 +113,37 @@ int main(int argc, char const *argv[])
 
                 playerInput(e, &GAME);
                 updatePlayer(&player);
+
+                player_box.x = player.x;
+                player_box.y = player.y;
+                
+                for (int y = 0; y < 24; y++)
+                {
+                    for (int x = 0; x < 32; x++)
+                    {
+                        block.x = x * 20;
+                        block.y = y * 20;
+
+                        if (collision(x * 20, y * 20, player.x, player.y)) 
+                            map_blocks[y][x] = 1;
+
+                        if (player.attacking)
+                        {
+                            // check ranged attack spot
+                        }
+                        
+                        if (map_blocks[y][x]) 
+                        {
+                            SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0xff, 0xff);
+                            SDL_RenderFillRect(*GAME.renderer, &block);
+                        }
+                    }
+                }
+
                 renderPlayer(GAME);
+
+                SDL_SetRenderDrawColor(renderer, 0xff, 0x00, 0x00, 0xff);
+                SDL_RenderFillRect(*GAME.renderer, &player_box);
 
                 SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
 
@@ -129,6 +177,6 @@ int main(int argc, char const *argv[])
     }
 
     freeTexture(&c_texture);
-    freeTexture(&e_texture);
+    //freeTexture(&e_texture);
     return 0;
 }
