@@ -1,4 +1,9 @@
 #include "sdl_template.h"
+#include <unistd.h>
+#include <threads.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #define c_anim_idx(a, b) ((a * 7) + b)
 #define Q_SIZE 5
@@ -16,6 +21,12 @@ typedef struct p_input
 {
     int last, current;
 } p_input;
+
+typedef struct network
+{
+    struct sockaddr_in servaddr, cli;
+    int sockfd, connfd, addrlen, n;
+} network;
 
 typedef struct player
 {
@@ -36,15 +47,23 @@ typedef struct player
     bool moving, attacking, a_hold, sprint;
 } player;
 
+typedef struct p_onoff
+{
+    int x, y, face;
+    bool attacking, walk, spring;
+} p_onoff;
+
 typedef struct game
 {
     SDL_Window **window;
     SDL_Renderer **renderer;
     Texture *c_texture, *e_texture;
 
-    player *p;
+    network nw;
 
-    bool running;
+    player *p, *p2;
+
+    bool running, host, client;
 } game;
 
 void c_initClips(SDL_Rect *);
@@ -52,7 +71,8 @@ void e_initClips(SDL_Rect *);
 
 bool collision(int x, int y, int x2, int y2);
 
-void playerInput(SDL_Event, game *);
+void playerInput(SDL_Event, game *, thrd_t *nw_thread);
+void setPlayerState(player *);
 void updatePlayer(player *);
 
 void animatePlayer(player *);
@@ -62,3 +82,12 @@ void renderPlayer(game);
 
 void enqueue(unsigned char *q, unsigned char val);
 void dequeue(unsigned char *q, unsigned char val);
+
+int setup_server(void *ptr);
+int connect_to_server(void *ptr);
+
+void host_loop(game *G);
+void client_loop(game *G);
+
+int recv_data(void *ptr);
+int send_data(void *ptr);

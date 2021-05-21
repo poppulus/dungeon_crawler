@@ -158,11 +158,11 @@ bool collision(int x, int y, int x2, int y2)
     int leftA = x, 
         leftB = x2, 
         rightA = x + 20, 
-        rightB = x2, 
+        rightB = x2 + 1, 
         topA = y, 
         topB = y2, 
         bottomA = y + 20, 
-        bottomB = y2;
+        bottomB = y2 + 1;
 
     if(bottomA <= topB) return false;
 
@@ -175,7 +175,7 @@ bool collision(int x, int y, int x2, int y2)
     return true;
 }
 
-void playerInput(SDL_Event e, game *g)
+void playerInput(SDL_Event e, game *g, thrd_t *nw_thread)
 {
     while (SDL_PollEvent(&e) != 0)
     {
@@ -185,6 +185,20 @@ void playerInput(SDL_Event e, game *g)
             case SDL_KEYDOWN:
                 switch (e.key.keysym.sym)
                 {
+                    case SDLK_h: 
+                        if (!g->host && !g->client)
+                        {
+                            thrd_create(nw_thread, setup_server, g);
+                            g->host = true;
+                        }
+                    break;
+                    case SDLK_c:
+                        if (!g->host && !g->client)
+                        {
+                            thrd_create(nw_thread, connect_to_server, g);
+                            g->client = true;
+                        }
+                    break;
                     case SDLK_ESCAPE: g->running = false; break;
                     case SDLK_SPACE:
                         g->p->input[4] = 1;
@@ -199,19 +213,19 @@ void playerInput(SDL_Event e, game *g)
                     case SDLK_LSHIFT: 
                         if (!e.key.repeat) g->p->sprint = true; 
                     break;
-                    case SDLK_UP:
+                    case SDLK_w:
                         if (!e.key.repeat) 
                         {enqueue(g->p->i_queue, UP); g->p->input[0] = 1;}
                     break;
-                    case SDLK_DOWN:
+                    case SDLK_s:
                         if (!e.key.repeat) 
                         {enqueue(g->p->i_queue, DOWN); g->p->input[2] = 1;}
                     break;
-                    case SDLK_LEFT:
+                    case SDLK_a:
                         if (!e.key.repeat) 
                         {enqueue(g->p->i_queue, LEFT); g->p->input[1] = 1;}
                     break;
-                    case SDLK_RIGHT:
+                    case SDLK_d:
                         if (!e.key.repeat) 
                         {enqueue(g->p->i_queue, RIGHT); g->p->input[3] = 1;}
                     break;
@@ -225,19 +239,19 @@ void playerInput(SDL_Event e, game *g)
                         g->p->a_hold = false; 
                     break;
                     case SDLK_LSHIFT: g->p->sprint = false; break;
-                    case SDLK_UP:
+                    case SDLK_w:
                         dequeue(g->p->i_queue, UP); 
                         g->p->input[0] = 0;
                     break;
-                    case SDLK_LEFT:
+                    case SDLK_a:
                         dequeue(g->p->i_queue, LEFT); 
                         g->p->input[1] = 0;
                     break;
-                    case SDLK_DOWN:
+                    case SDLK_s:
                         dequeue(g->p->i_queue, DOWN); 
                         g->p->input[2] = 0;
                     break;
-                    case SDLK_RIGHT:
+                    case SDLK_d:
                         dequeue(g->p->i_queue, RIGHT); 
                         g->p->input[3] = 0;
                     break;
@@ -245,6 +259,33 @@ void playerInput(SDL_Event e, game *g)
             break;
         }
     }
+}
+
+void setPlayerState(player *p)
+{
+    /*
+    //p->clips = (SDL_Rect *)&c_clips,
+    p->w = 14;
+    p->h = 30;
+    p->x = 320 - 32;
+    p->y = 240 - 32;
+    p->rx = (320 - 32) / 20;
+    p->ry = (240 - 32) / 20;
+    p->dir = -1;
+    p->face = DOWN;
+    p->xvel = 0;
+    p->yvel = 0;
+    p->input = {0, 0, 0, 0};
+    p->moving = false;
+    p->attacking = false;
+    p->a_hold = false;
+    p->sprint = false;
+    p->acounter = 0;
+    p->aindex = 1;
+    p->atk_counter = 0;
+    p->i_queue = {255, 255 ,255 ,255};
+    p->a_hitBox = {.w = 1, .h = 1, .x = player1.x + 8, .y = player1.y + 40};
+    */
 }
 
 void updatePlayer(player *p)
@@ -310,20 +351,20 @@ void animatePlayer(player *p)
             switch (p->face)
             {
                 case DOWN:
-                    p->rx = (p->x / 20);
-                    p->ry = (p->y / 20) + p->aindex;
+                    p->rx = p->x;
+                    p->ry = p->y + ((p->aindex - 3) * 20);
                 break;
                 case UP:
-                    p->rx = (p->x / 20);
-                    p->ry = (p->y / 20) - p->aindex;
+                    p->rx = p->x;
+                    p->ry = p->y - ((p->aindex - 3) * 20);
                 break;
                 case LEFT:
-                    p->rx = (p->x / 20) - p->aindex;
-                    p->ry = (p->y / 20);
+                    p->rx = p->x - ((p->aindex - 3) * 20);
+                    p->ry = p->y;
                 break;
                 case RIGHT:
-                    p->rx = (p->x / 20) + p->aindex;
-                    p->ry = (p->y / 20);    
+                    p->rx = p->x + ((p->aindex - 3) * 20);
+                    p->ry = p->y;    
                 break;
             }
         }
@@ -337,8 +378,8 @@ void animatePlayer(player *p)
             dequeue(p->i_queue, ATTACK);
             p->attacking = false;
 
-            p->rx = p->x / 20;
-            p->ry = p->y / 20;
+            p->rx = p->x;
+            p->ry = p->y;
         }
     }
     else 
@@ -408,4 +449,259 @@ void dequeue(unsigned char *q, unsigned char val)
     }
 
     q[Q_SIZE - 1] = 255;
+}
+
+int setup_server(void *ptr)
+{
+    game *G = ptr;
+    network *nw = &G->nw;
+
+    char buffer[64];
+    
+    // socket create and verification
+    nw->sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+	if (nw->sockfd == -1) {
+		printf("socket creation failed...\n");
+        thrd_exit(1);
+	}
+	else
+		printf("Socket successfully created..\n");
+
+    /*
+    if (setsockopt(nw->sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+    {
+        perror("setsockopt(SO_REUSEADDR) failed");
+        thrd_exit(1);
+    }
+    */
+
+    bzero(&nw->servaddr, sizeof(nw->servaddr));
+
+	// assign IP, PORT
+	nw->servaddr.sin_family = AF_INET;
+	nw->servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	nw->servaddr.sin_port = htons(8008);
+
+	// Binding newly created socket to given IP and verification
+	if ((bind(nw->sockfd, (struct sockaddr*)&nw->servaddr, sizeof(nw->servaddr))) != 0) {
+		printf("socket bind failed...\n");
+        thrd_exit(1);
+	}
+	else
+		printf("Socket successfully binded..\n");
+
+	nw->addrlen = sizeof(nw->cli);
+
+    /*
+    // Now server is ready to listen and verification
+	if ((listen(nw->sockfd, 1)) != 0) {
+		printf("Listen failed...\n");
+        thrd_exit(1);
+	}
+	else
+		printf("Server listening..\n");
+
+	// Accept the data packet from client and verification
+	nw->connfd = accept(nw->sockfd, (struct sockaddr*)&nw->cli, &nw->addrlen);
+	if (nw->connfd < 0) {
+		printf("server acccept failed...\n");
+	}
+	else
+    {
+        printf("server acccept the client...\n");
+        network_loop(G);
+    }
+
+    */
+
+    host_loop(G);
+
+    shutdown(nw->sockfd, SHUT_RDWR);
+
+    printf("host thread terminated\n");
+    thrd_exit(0);
+    return 0;
+}
+
+int connect_to_server(void *ptr)
+{
+    game *G = ptr;
+    network *nw = &G->nw;
+    // socket create and varification
+	nw->sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (nw->sockfd == -1) {
+		printf("socket creation failed...\n");
+        thrd_exit(1);
+	}
+	else
+		printf("Socket successfully created..\n");
+
+	bzero(&nw->servaddr, sizeof(nw->servaddr));
+
+	// assign IP, PORT
+	nw->servaddr.sin_family = AF_INET;
+	nw->servaddr.sin_addr.s_addr = INADDR_ANY;
+	nw->servaddr.sin_port = htons(8008);
+
+    /*
+    if (connect(nw->sockfd, (struct sockaddr*)&nw->servaddr, sizeof(nw->servaddr)) != 0) {
+		printf("connection with the server failed...\n");
+        return false;
+	}
+	else 
+    {
+        printf("connected to the server..\n");
+        client_loop(G);
+    }
+    */
+
+    client_loop(G);
+
+    printf("client thread terminated\n");
+    thrd_exit(0);
+    return 0;
+}
+
+void host_loop(game *G)
+{
+    int nbytes;
+    short buffer[2];
+
+    printf("host loop\n");
+
+    while (G->running)
+    {
+        //recv(G->nw.sockfd, buffer, sizeof(buffer), 0);
+        nbytes = recvfrom(G->nw.sockfd, buffer, sizeof(buffer), MSG_WAITALL, 
+            (struct sockaddr*)&G->nw.cli, 
+            &G->nw.addrlen);    
+
+        if (nbytes > 0)
+        {
+            G->p2->x = buffer[0];
+            G->p2->y = buffer[1];
+        }
+
+        bzero(buffer, sizeof(buffer));
+        buffer[0] = G->p->x;
+        buffer[1] = G->p->y;
+
+        sendto(G->nw.sockfd, buffer, sizeof(buffer), MSG_CONFIRM, 
+            (struct sockaddr*)&G->nw.cli, 
+            G->nw.addrlen);
+
+        /*
+        if (nbytes <= 0)
+        {
+            printf("socket %d hung up\n", G->nw.connfd);
+            close(G->nw.connfd);
+            q = true;
+        }
+        else
+        {
+
+        }
+        */
+
+        bzero(buffer, sizeof(buffer));
+    }
+}
+
+void client_loop(game *G)
+{
+    int nbytes;
+    short buffer[2];
+
+    printf("client loop\n");
+
+    while (G->running)
+    {
+        buffer[0] = G->p->x;
+        buffer[1] = G->p->y;
+
+        sendto(G->nw.sockfd, buffer, sizeof(buffer), MSG_CONFIRM, 
+            (struct sockaddr*)&G->nw.servaddr, 
+            sizeof(G->nw.servaddr));
+
+        bzero(buffer, sizeof(buffer));
+
+        //recv(G->nw.sockfd, buffer, sizeof(buffer), 0);
+        nbytes = recvfrom(G->nw.sockfd, buffer, sizeof(buffer), MSG_WAITALL, 
+            (struct sockaddr*)&G->nw.servaddr, 
+            &G->nw.addrlen);    
+
+        if (nbytes > 0)
+        {
+            G->p2->x = buffer[0];
+            G->p2->y = buffer[1];
+        }
+
+        /*
+        if (nbytes <= 0)
+        {
+            printf("socket %d hung up\n", G->nw.connfd);
+            close(G->nw.connfd);
+            q = true;
+        }
+        else
+        {
+
+        }
+        */
+
+        bzero(buffer, sizeof(buffer));
+    }
+}
+
+int recv_data(void *ptr)
+{
+    game *G = ptr;
+    int nbytes;
+    short buffer[2];
+
+    /*
+    while (G->running)
+    {
+        nbytes = recvfrom(G->nw.sockfd, buffer, sizeof(buffer), 0, 
+            (struct sockaddr*)&G->nw.servaddr, 
+            &G->nw.addrlen);
+
+        if (nbytes > 0)
+        {
+
+        }
+
+        bzero(buffer, sizeof(buffer));
+    }
+    */
+
+    thrd_exit(0);
+    return 0;
+}
+
+int send_data(void *ptr)
+{
+    game *G = ptr;
+    int nbytes;
+    short buffer[2];
+
+    /*
+    while (G->running)
+    {
+        nbytes = sendto(G->nw.sockfd, buffer, sizeof(buffer), 0, 
+            (struct sockaddr*)&G->nw.servaddr, 
+            &G->nw.addrlen);
+
+        if (nbytes > 0)
+        {
+            
+        }
+
+        bzero(buffer, sizeof(buffer));
+    }
+    */
+
+    thrd_exit(0);
+    return 0;
 }

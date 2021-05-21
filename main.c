@@ -58,7 +58,7 @@ int main(int argc, char const *argv[])
         .x = 320 - 32, .y = 240 - 32
     };
 
-    player player = {
+    player player1 = {
         .clips = (SDL_Rect *)&c_clips,
         .w = 14,
         .h = 30,
@@ -79,19 +79,25 @@ int main(int argc, char const *argv[])
         .aindex = 1,
         .atk_counter = 0,
         .i_queue = {255, 255 ,255 ,255},
-        .a_hitBox = {.w = 1, .h = 1, .x = player.x + 8, .y = player.y + 40}
+        .a_hitBox = {.w = 1, .h = 1, .x = player1.x + 8, .y = player1.y + 40}
     };
+
+    player player2;
 
     game GAME = {
         .window = &window,
         .renderer = &renderer,
         .c_texture = &c_texture,
         .e_texture = &e_texture,
-        .p = &player,
-        .running = true
+        .p = &player1,
+        .p2 = &player2,
+        .running = true,
+        .host = false,
+        .client = false
     };
 
     int timer, delta;
+    thrd_t nw_thread;
 
     if (initSdl(&window, &renderer, W_WIDTH, W_HEIGHT))
     {
@@ -111,11 +117,11 @@ int main(int argc, char const *argv[])
                 SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
                 SDL_RenderClear(renderer);
 
-                playerInput(e, &GAME);
-                updatePlayer(&player);
+                playerInput(e, &GAME, &nw_thread);
+                updatePlayer(&player1);
 
-                player_box.x = player.x;
-                player_box.y = player.y;
+                player_box.x = player1.x;
+                player_box.y = player1.y;
                 
                 for (int y = 0; y < 24; y++)
                 {
@@ -124,12 +130,14 @@ int main(int argc, char const *argv[])
                         block.x = x * 20;
                         block.y = y * 20;
 
-                        if (collision(x * 20, y * 20, player.x, player.y)) 
+                        if (collision(x * 20, y * 20, player1.x, player1.y)) 
                             map_blocks[y][x] = 1;
 
-                        if (player.attacking)
+                        if (player1.attacking)
                         {
                             // check ranged attack spot
+                            if (collision(x * 20, y * 20, player1.rx, player1.ry)) 
+                                map_blocks[y][x] = 1;
                         }
                         
                         if (map_blocks[y][x]) 
@@ -141,6 +149,11 @@ int main(int argc, char const *argv[])
                 }
 
                 renderPlayer(GAME);
+
+                // p2 test render
+                renderTexture(*GAME.renderer, GAME.c_texture, 
+                    GAME.p2->x - 16, GAME.p2->y - 28, 
+                    &GAME.p->clips[0], false);
 
                 SDL_SetRenderDrawColor(renderer, 0xff, 0x00, 0x00, 0xff);
                 SDL_RenderFillRect(*GAME.renderer, &player_box);
@@ -155,15 +168,15 @@ int main(int argc, char const *argv[])
 
                 SDL_SetRenderDrawColor(renderer, 0x00, 0xff, 0x00, 0xff);
 
-                if (player.input[0])
+                if (player1.input[0])
                     SDL_RenderFillRect(*GAME.renderer, &arrow_display[0]);
-                if (player.input[1])
+                if (player1.input[1])
                     SDL_RenderFillRect(*GAME.renderer, &arrow_display[1]);
-                if (player.input[2])
+                if (player1.input[2])
                     SDL_RenderFillRect(*GAME.renderer, &arrow_display[2]);
-                if (player.input[3])
+                if (player1.input[3])
                     SDL_RenderFillRect(*GAME.renderer, &arrow_display[3]);
-                if (player.input[4])
+                if (player1.input[4])
                     SDL_RenderFillRect(*GAME.renderer, &arrow_display[4]);
 
                 // put it all on screen
@@ -175,6 +188,8 @@ int main(int argc, char const *argv[])
             }
         }
     }
+
+    shutdown(GAME.nw.sockfd, SHUT_RDWR);
 
     freeTexture(&c_texture);
     //freeTexture(&e_texture);
