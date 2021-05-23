@@ -2,9 +2,6 @@
 
 int main(int argc, char const *argv[])
 {
-    const int FPS = 60;
-    const int TICKS = 1000 / FPS;
-
     const int W_WIDTH = 640;
     const int W_HEIGHT = 480;
 
@@ -53,11 +50,6 @@ int main(int argc, char const *argv[])
         [4].y = 20,
     };
 
-    SDL_Rect player_box = {
-        .w = 2, .h = 2, 
-        .x = 320 - 32, .y = 240 - 32
-    };
-
     player player1 = {
         .clips = (SDL_Rect *)&c_clips,
         .w = 14,
@@ -75,6 +67,7 @@ int main(int argc, char const *argv[])
         .attacking = false,
         .a_hold = false,
         .sprint = false,
+        .spawned = true,
         .acounter = 0,
         .aindex = 1,
         .atk_counter = 0,
@@ -98,6 +91,7 @@ int main(int argc, char const *argv[])
 
     int timer, delta;
     thrd_t nw_thread;
+    short buffer[4];
 
     if (initSdl(&window, &renderer, W_WIDTH, W_HEIGHT))
     {
@@ -106,7 +100,8 @@ int main(int argc, char const *argv[])
         {
             c_initClips(c_clips);
             //e_initClips(e_clips);
-            
+
+            memset(&player2, 0, sizeof(player2));
             memset(map_blocks, 0, (32 * 24));
 
             while (GAME.running)
@@ -119,10 +114,8 @@ int main(int argc, char const *argv[])
 
                 playerInput(e, &GAME, &nw_thread);
                 updatePlayer(&player1);
+                updateOnOff(&player2);
 
-                player_box.x = player1.x;
-                player_box.y = player1.y;
-                
                 for (int y = 0; y < 24; y++)
                 {
                     for (int x = 0; x < 32; x++)
@@ -147,16 +140,10 @@ int main(int argc, char const *argv[])
                         }
                     }
                 }
-
-                renderPlayer(GAME);
-
-                // p2 test render
-                renderTexture(*GAME.renderer, GAME.c_texture, 
-                    GAME.p2->x - 16, GAME.p2->y - 28, 
-                    &GAME.p->clips[0], false);
-
-                SDL_SetRenderDrawColor(renderer, 0xff, 0x00, 0x00, 0xff);
-                SDL_RenderFillRect(*GAME.renderer, &player_box);
+                // p1
+                renderPlayer(GAME, 0);
+                // p2
+                renderPlayer(GAME, 1);
 
                 SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
 
@@ -190,6 +177,7 @@ int main(int argc, char const *argv[])
     }
 
     shutdown(GAME.nw.sockfd, SHUT_RDWR);
+    shutdown(GAME.nw.connfd, SHUT_RDWR);
 
     freeTexture(&c_texture);
     //freeTexture(&e_texture);

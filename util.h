@@ -5,6 +5,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#define FPS 60
+#define TICKS 1000/FPS
+
 #define c_anim_idx(a, b) ((a * 7) + b)
 #define Q_SIZE 5
 #define ATTACK 4
@@ -34,6 +37,7 @@ typedef struct player
 
     int w, h, 
         x, y,
+        nx, ny,
         face, dir,
         xvel, yvel,
         rx, ry;
@@ -44,14 +48,8 @@ typedef struct player
                     atk_counter, 
                     i_queue[Q_SIZE];
 
-    bool moving, attacking, a_hold, sprint;
+    bool moving, attacking, a_hold, sprint, spawned;
 } player;
-
-typedef struct p_onoff
-{
-    int x, y, face;
-    bool attacking, walk, spring;
-} p_onoff;
 
 typedef struct game
 {
@@ -75,10 +73,12 @@ void playerInput(SDL_Event, game *, thrd_t *nw_thread);
 void setPlayerState(player *);
 void updatePlayer(player *);
 
+void updateOnOff(player *);
+
 void animatePlayer(player *);
 void playerWalking();
 void playerAttacking();
-void renderPlayer(game);
+void renderPlayer(game, int nmbr);
 
 void enqueue(unsigned char *q, unsigned char val);
 void dequeue(unsigned char *q, unsigned char val);

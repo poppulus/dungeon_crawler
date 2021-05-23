@@ -341,6 +341,82 @@ void updatePlayer(player *p)
     p->y += p->yvel;
 }
 
+void updateOnOff(player *p)
+{
+    if (p->spawned)
+    {
+        // animation
+        if (p->attacking)
+        {
+            p->acounter = 0;
+            p->aindex = 4;
+
+            if (p->atk_counter >= 5 && p->atk_counter < 10)
+            {
+                p->aindex = 5;
+            }
+            else if (p->atk_counter >= 10 && p->atk_counter < 15)
+            {
+                p->aindex = 6;
+            }
+            else if ((p->atk_counter + 1) >= 15) 
+            {
+                p->aindex = 0;
+            }
+        }
+        else
+        {
+            p->acounter++;
+
+            if (p->nx != p->x && p->ny == p->y)
+            {
+                if (p->nx > p->x)
+                {
+                    p->face = RIGHT;
+                }
+                else if (p->nx < p->x)
+                {
+                    p->face = LEFT;
+                }
+
+                if (p->nx == (p->x + 1 || p->x - 1))
+                {
+                    p->aindex++;
+                    p->aindex = (p->aindex % 2) + 2;
+                }
+            }
+            else if (p->ny != p->y && p->nx == p->x)
+            {
+                if (p->ny > p->y)
+                {
+                    p->face = DOWN;
+                }
+                else if (p->ny < p->y)
+                {
+                    p->face = UP;
+                }
+
+                if (p->ny == (p->y + 1 || p->y - 1))
+                {
+                    p->aindex++;
+                    p->aindex = (p->aindex % 2) + 2;
+                }
+            }
+            else
+            {
+                if (p->acounter % 16 == 0)
+                {
+                    p->aindex++;
+                    p->aindex %= 2;
+                }
+            }
+        }
+
+        p->x = p->nx;
+        p->y = p->ny;
+    }
+}
+
 void animatePlayer(player *p)
 {
     if (p->attacking)
@@ -410,20 +486,27 @@ void animatePlayer(player *p)
     }
 }
 
-void renderPlayer(game G)
+void renderPlayer(game G, int playernmbr)
 {
-    bool flip = (G.p->face == 3 ? true : false);
-    int c_index;
+    player *p;
 
-    if (G.p->face == 3) c_index = (2 * 7) + G.p->aindex;
-    else c_index = (G.p->face * 7) + G.p->aindex;
-
-    renderTexture(*G.renderer, G.c_texture, G.p->x - 16, G.p->y - 28, &G.p->clips[c_index], flip);
-
-    if (G.p->attacking) 
+    switch (playernmbr)
     {
-        SDL_SetRenderDrawColor(*G.renderer, 0x00, 0x00, 0x00, 0xff);
-        SDL_RenderFillRect(*G.renderer, &G.p->a_hitBox);
+        case 0: p = G.p; break;
+        case 1: p = G.p2; break;
+    }
+
+    if (p->spawned)
+    {
+        bool flip = (p->face == 3 ? true : false);
+        int c_index;
+    
+        if (p->face == 3) c_index = (2 * 7) + p->aindex;
+        else c_index = (p->face * 7) + p->aindex;
+
+        renderTexture(*G.renderer, G.c_texture, 
+            p->x - 16, p->y - 28, 
+            &G.p->clips[c_index], flip);
     }
 }
 
@@ -456,10 +539,8 @@ int setup_server(void *ptr)
     game *G = ptr;
     network *nw = &G->nw;
 
-    char buffer[64];
-    
     // socket create and verification
-    nw->sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    nw->sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
 	if (nw->sockfd == -1) {
 		printf("socket creation failed...\n");
@@ -468,13 +549,11 @@ int setup_server(void *ptr)
 	else
 		printf("Socket successfully created..\n");
 
-    /*
     if (setsockopt(nw->sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
     {
         perror("setsockopt(SO_REUSEADDR) failed");
         thrd_exit(1);
     }
-    */
 
     bzero(&nw->servaddr, sizeof(nw->servaddr));
 
@@ -493,7 +572,6 @@ int setup_server(void *ptr)
 
 	nw->addrlen = sizeof(nw->cli);
 
-    /*
     // Now server is ready to listen and verification
 	if ((listen(nw->sockfd, 1)) != 0) {
 		printf("Listen failed...\n");
@@ -510,12 +588,9 @@ int setup_server(void *ptr)
 	else
     {
         printf("server acccept the client...\n");
-        network_loop(G);
+        host_loop(G);
+        G->host = false;
     }
-
-    */
-
-    host_loop(G);
 
     shutdown(nw->sockfd, SHUT_RDWR);
 
@@ -529,7 +604,7 @@ int connect_to_server(void *ptr)
     game *G = ptr;
     network *nw = &G->nw;
     // socket create and varification
-	nw->sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	nw->sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (nw->sockfd == -1) {
 		printf("socket creation failed...\n");
         thrd_exit(1);
@@ -544,7 +619,6 @@ int connect_to_server(void *ptr)
 	nw->servaddr.sin_addr.s_addr = INADDR_ANY;
 	nw->servaddr.sin_port = htons(8008);
 
-    /*
     if (connect(nw->sockfd, (struct sockaddr*)&nw->servaddr, sizeof(nw->servaddr)) != 0) {
 		printf("connection with the server failed...\n");
         return false;
@@ -553,10 +627,10 @@ int connect_to_server(void *ptr)
     {
         printf("connected to the server..\n");
         client_loop(G);
+        G->client = false;
     }
-    */
 
-    client_loop(G);
+    shutdown(nw->sockfd, SHUT_RDWR);
 
     printf("client thread terminated\n");
     thrd_exit(0);
@@ -565,92 +639,115 @@ int connect_to_server(void *ptr)
 
 void host_loop(game *G)
 {
-    int nbytes;
-    short buffer[2];
+    Uint32 timer, delta;
+    short nbytes, buffer[4];
+    bool q = false;
 
     printf("host loop\n");
 
-    while (G->running)
+    while (!q)
     {
-        //recv(G->nw.sockfd, buffer, sizeof(buffer), 0);
-        nbytes = recvfrom(G->nw.sockfd, buffer, sizeof(buffer), MSG_WAITALL, 
+        timer = SDL_GetTicks();
+
+        nbytes = recv(G->nw.connfd, buffer, sizeof(buffer), 0);
+
+        /* udp
+        recvfrom(G->nw.sockfd, buffer, sizeof(buffer), MSG_WAITALL, 
             (struct sockaddr*)&G->nw.cli, 
-            &G->nw.addrlen);    
-
-        if (nbytes > 0)
-        {
-            G->p2->x = buffer[0];
-            G->p2->y = buffer[1];
-        }
-
-        bzero(buffer, sizeof(buffer));
-        buffer[0] = G->p->x;
-        buffer[1] = G->p->y;
+            &G->nw.addrlen);
 
         sendto(G->nw.sockfd, buffer, sizeof(buffer), MSG_CONFIRM, 
-            (struct sockaddr*)&G->nw.cli, 
-            G->nw.addrlen);
+                (struct sockaddr*)&G->nw.cli, 
+                G->nw.addrlen);
+        */
 
-        /*
         if (nbytes <= 0)
         {
             printf("socket %d hung up\n", G->nw.connfd);
-            close(G->nw.connfd);
+            perror("error: ");
+            //close(G->nw.connfd);
             q = true;
         }
-        else
+        else if (nbytes > 0)
         {
+            if (!G->p2->spawned) G->p2->spawned = true;
+            G->p2->nx = buffer[0];
+            G->p2->ny = buffer[1];
+            G->p2->attacking = buffer[2];
+            G->p2->atk_counter = buffer[3];
 
+            bzero(buffer, sizeof(buffer));
         }
-        */
+
+        buffer[0] = G->p->x;
+        buffer[1] = G->p->y;
+        buffer[2] = G->p->attacking;
+        buffer[3] = G->p->atk_counter;
+
+        send(G->nw.connfd, buffer, sizeof(buffer), 0);
 
         bzero(buffer, sizeof(buffer));
+
+        // set tickrate to ~60
+        delta = SDL_GetTicks() - timer;
+        if (delta < TICKS) SDL_Delay(TICKS - delta);
     }
 }
 
 void client_loop(game *G)
 {
-    int nbytes;
-    short buffer[2];
+    int nbytes, timer, delta;
+    short buffer[4];
+    bool q = false;
 
     printf("client loop\n");
 
-    while (G->running)
+    while (!q)
     {
-        buffer[0] = G->p->x;
-        buffer[1] = G->p->y;
+        //timer = SDL_GetTicks();
 
-        sendto(G->nw.sockfd, buffer, sizeof(buffer), MSG_CONFIRM, 
-            (struct sockaddr*)&G->nw.servaddr, 
-            sizeof(G->nw.servaddr));
+        /* udp
+            recvfrom(G->nw.sockfd, buffer, sizeof(buffer), MSG_WAITALL, 
+                (struct sockaddr*)&G->nw.servaddr, 
+                &G->nw.addrlen); 
 
-        bzero(buffer, sizeof(buffer));
-
-        //recv(G->nw.sockfd, buffer, sizeof(buffer), 0);
-        nbytes = recvfrom(G->nw.sockfd, buffer, sizeof(buffer), MSG_WAITALL, 
-            (struct sockaddr*)&G->nw.servaddr, 
-            &G->nw.addrlen);    
-
-        if (nbytes > 0)
-        {
-            G->p2->x = buffer[0];
-            G->p2->y = buffer[1];
-        }
-
-        /*
-        if (nbytes <= 0)
-        {
-            printf("socket %d hung up\n", G->nw.connfd);
-            close(G->nw.connfd);
-            q = true;
-        }
-        else
-        {
-
-        }
+            sendto(G->nw.sockfd, buffer, sizeof(buffer), MSG_CONFIRM, 
+                (struct sockaddr*)&G->nw.servaddr, 
+                sizeof(G->nw.servaddr));
         */
 
+        buffer[0] = G->p->x;
+        buffer[1] = G->p->y;
+        buffer[2] = G->p->attacking;
+        buffer[3] = G->p->atk_counter;
+
+        send(G->nw.sockfd, buffer, sizeof(buffer), 0);
+
         bzero(buffer, sizeof(buffer));
+
+        nbytes = recv(G->nw.sockfd, buffer, sizeof(buffer), 0);
+
+        if (nbytes <= 0)
+        {
+            printf("socket %d hung up\n", G->nw.sockfd);
+            perror("error: ");
+            close(G->nw.sockfd);
+            q = true;
+        }
+        else if (nbytes > 0)
+        {
+            if (!G->p2->spawned) G->p2->spawned = true;
+            G->p2->nx = buffer[0];
+            G->p2->ny = buffer[1];
+            G->p2->attacking = buffer[2];
+            G->p2->atk_counter = buffer[3];
+
+            bzero(buffer, sizeof(buffer));
+        }
+
+        // set tickrate to ~60
+        //delta = SDL_GetTicks() - timer;
+        //if (delta < TICKS) SDL_Delay(TICKS - delta);
     }
 }
 
