@@ -79,6 +79,7 @@ int main(int argc, char const *argv[])
         .renderer = &renderer,
         .c_texture = &c_texture,
         .e_texture = &e_texture,
+        //.ip = "0.0.0.0",
         .p = &player1,
         .p2 = &player2,
         .running = true,
@@ -90,6 +91,14 @@ int main(int argc, char const *argv[])
     int timer, delta;
     thrd_t nw_thread;
     short buffer[4];
+
+    if (argc > 1) 
+    {
+        GAME.ip = argv[1];
+        /*
+        memcpy(GAME.ip, argv[1], sizeof GAME.ip);
+        */
+    }
 
     if (initSdl(&window, &renderer))
     {

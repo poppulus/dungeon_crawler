@@ -64,6 +64,8 @@ typedef struct game
 
     player *p, *p2;
 
+    const char *ip;
+
     bool running, host, client, kill;
 } game;
 

@@ -634,7 +634,7 @@ int connect_to_server(void *ptr)
 
 	// assign IP, PORT
 	nw->servaddr.sin_family = AF_INET;
-	nw->servaddr.sin_addr.s_addr = INADDR_ANY;
+	nw->servaddr.sin_addr.s_addr = inet_addr(G->ip);
 	nw->servaddr.sin_port = htons(8008);
 
     if (connect(nw->sockfd, (struct sockaddr*)&nw->servaddr, sizeof(nw->servaddr)) != 0) {
