@@ -2,9 +2,6 @@
 
 int main(int argc, char const *argv[])
 {
-    const int W_WIDTH = 640;
-    const int W_HEIGHT = 480;
-
     SDL_Window *window;
     SDL_Renderer *renderer;
     Texture c_texture;
@@ -86,14 +83,15 @@ int main(int argc, char const *argv[])
         .p2 = &player2,
         .running = true,
         .host = false,
-        .client = false
+        .client = false,
+        .kill = false
     };
 
     int timer, delta;
     thrd_t nw_thread;
     short buffer[4];
 
-    if (initSdl(&window, &renderer, W_WIDTH, W_HEIGHT))
+    if (initSdl(&window, &renderer))
     {
         if (initTextureMap(&renderer, &c_texture, "assets/doomed_looters/warrior-Sheet.png"))
         //& initTextureMap(&renderer, &e_texture, "assets/Rogue-Like-8x8/Enemies.png"))
@@ -114,7 +112,6 @@ int main(int argc, char const *argv[])
 
                 playerInput(e, &GAME, &nw_thread);
                 updatePlayer(&player1);
-                updateOnOff(&player2);
 
                 for (int y = 0; y < 24; y++)
                 {
@@ -143,7 +140,8 @@ int main(int argc, char const *argv[])
                 // p1
                 renderPlayer(GAME, 0);
                 // p2
-                renderPlayer(GAME, 1);
+                if (GAME.client || GAME.host)
+                {updateOnOff(&player2); renderPlayer(GAME, 1);}
 
                 SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
 
@@ -178,7 +176,7 @@ int main(int argc, char const *argv[])
 
     shutdown(GAME.nw.sockfd, SHUT_RDWR);
     shutdown(GAME.nw.connfd, SHUT_RDWR);
-
+    
     freeTexture(&c_texture);
     //freeTexture(&e_texture);
     return 0;

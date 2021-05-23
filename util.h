@@ -5,6 +5,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#define W_WIDTH 640
+#define W_HEIGHT 480
+
 #define FPS 60
 #define TICKS 1000/FPS
 
@@ -61,7 +64,7 @@ typedef struct game
 
     player *p, *p2;
 
-    bool running, host, client;
+    bool running, host, client, kill;
 } game;
 
 void c_initClips(SDL_Rect *);

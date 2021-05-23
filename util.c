@@ -2,7 +2,7 @@
 
 // sdl and rendering stuff
 //
-bool initSdl(SDL_Window **window, SDL_Renderer **renderer, const int W_WIDTH, const int W_HEIGHT)
+bool initSdl(SDL_Window **window, SDL_Renderer **renderer)
 {
     //Initialization flag
     bool success = true;
@@ -188,16 +188,19 @@ void playerInput(SDL_Event e, game *g, thrd_t *nw_thread)
                     case SDLK_h: 
                         if (!g->host && !g->client)
                         {
-                            thrd_create(nw_thread, setup_server, g);
                             g->host = true;
+                            thrd_create(nw_thread, setup_server, g);
                         }
                     break;
-                    case SDLK_c:
+                    case SDLK_j:
                         if (!g->host && !g->client)
                         {
-                            thrd_create(nw_thread, connect_to_server, g);
                             g->client = true;
+                            thrd_create(nw_thread, connect_to_server, g);
                         }
+                    break;
+                    case SDLK_k:
+                        g->kill = true;
                     break;
                     case SDLK_ESCAPE: g->running = false; break;
                     case SDLK_SPACE:
@@ -351,18 +354,15 @@ void updateOnOff(player *p)
             p->acounter = 0;
             p->aindex = 4;
 
-            if (p->atk_counter >= 5 && p->atk_counter < 10)
-            {
+            if (p->atk_counter < 5) p->aindex = 4;
+
+            else if (p->atk_counter >= 5 && p->atk_counter < 10)
                 p->aindex = 5;
-            }
-            else if (p->atk_counter >= 10 && p->atk_counter < 15)
-            {
+            
+            else if (p->atk_counter >= 10) 
                 p->aindex = 6;
-            }
-            else if ((p->atk_counter + 1) >= 15) 
-            {
-                p->aindex = 0;
-            }
+
+            if (p->atk_counter + 1 == 15) p->aindex = 0;
         }
         else
         {
@@ -379,7 +379,14 @@ void updateOnOff(player *p)
                     p->face = LEFT;
                 }
 
-                if (p->nx == (p->x + 1 || p->x - 1))
+                if (((p->nx == p->x + 1) || (p->nx == p->x - 1)) 
+                && (p->acounter % 8 == 0))
+                {
+                    p->aindex++;
+                    p->aindex = (p->aindex % 2) + 2;
+                }
+                else if (((p->nx == p->x + 2) || (p->nx == p->x - 2)) 
+                && (p->acounter % 6 == 0))
                 {
                     p->aindex++;
                     p->aindex = (p->aindex % 2) + 2;
@@ -396,7 +403,14 @@ void updateOnOff(player *p)
                     p->face = UP;
                 }
 
-                if (p->ny == (p->y + 1 || p->y - 1))
+                if (((p->ny == p->y + 1) || (p->ny == p->y - 1)) 
+                && (p->acounter % 8 == 0))
+                {
+                    p->aindex++;
+                    p->aindex = (p->aindex % 2) + 2;
+                }
+                else if (((p->ny == p->y + 2) || (p->ny == p->y - 2)) 
+                && (p->acounter % 6 == 0))
                 {
                     p->aindex++;
                     p->aindex = (p->aindex % 2) + 2;
@@ -590,9 +604,13 @@ int setup_server(void *ptr)
         printf("server acccept the client...\n");
         host_loop(G);
         G->host = false;
+        G->kill = false;
     }
 
-    shutdown(nw->sockfd, SHUT_RDWR);
+    close(G->nw.sockfd);
+    close(G->nw.connfd);
+
+    memset(G->p2, 0, sizeof(*G->p2));
 
     printf("host thread terminated\n");
     thrd_exit(0);
@@ -621,17 +639,25 @@ int connect_to_server(void *ptr)
 
     if (connect(nw->sockfd, (struct sockaddr*)&nw->servaddr, sizeof(nw->servaddr)) != 0) {
 		printf("connection with the server failed...\n");
-        return false;
+        thrd_exit(1);
 	}
 	else 
     {
         printf("connected to the server..\n");
+
+        G->p->x = (W_WIDTH / 2) - G->p->w;
+        G->p->y = (W_HEIGHT / 2) - G->p->h;
+
         client_loop(G);
+
         G->client = false;
+        G->kill = false;
     }
 
-    shutdown(nw->sockfd, SHUT_RDWR);
+    close(G->nw.sockfd);
 
+    memset(G->p2, 0, sizeof(*G->p2));
+    
     printf("client thread terminated\n");
     thrd_exit(0);
     return 0;
@@ -645,7 +671,7 @@ void host_loop(game *G)
 
     printf("host loop\n");
 
-    while (!q)
+    while (!q && G->running && !G->kill)
     {
         timer = SDL_GetTicks();
 
@@ -664,8 +690,7 @@ void host_loop(game *G)
         if (nbytes <= 0)
         {
             printf("socket %d hung up\n", G->nw.connfd);
-            perror("error: ");
-            //close(G->nw.connfd);
+            perror("status: ");
             q = true;
         }
         else if (nbytes > 0)
@@ -702,7 +727,7 @@ void client_loop(game *G)
 
     printf("client loop\n");
 
-    while (!q)
+    while (!q && G->running && !G->kill)
     {
         //timer = SDL_GetTicks();
 
@@ -730,8 +755,7 @@ void client_loop(game *G)
         if (nbytes <= 0)
         {
             printf("socket %d hung up\n", G->nw.sockfd);
-            perror("error: ");
-            close(G->nw.sockfd);
+            perror("status: ");
             q = true;
         }
         else if (nbytes > 0)
