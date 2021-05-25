@@ -42,6 +42,14 @@ enum PlayerIndex
     PLAYER4
 };
 
+enum N_PINDEX
+{
+    N_P1,
+    N_P2 = 5,
+    N_P3 = 10,
+    N_P4 = 15
+};
+
 typedef struct p_input
 {
     int last, current;

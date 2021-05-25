@@ -67,7 +67,8 @@ int main(int argc, char const *argv[])
                 playerInput(e, &GAME, &nw_thread);
                 updateLocalPlayer(&g_players[PLAYER1]);
                 
-                for (int p = 1; p < 4; p++) updateOtherPlayer(&g_players[p]);
+                for (int p = 1; p < 4; p++) 
+                    updateOtherPlayer(&g_players[p]);
 
                 for (int y = 0; y < 24; y++)
                 {
