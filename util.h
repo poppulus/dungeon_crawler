@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <poll.h>
 
 #define W_WIDTH 640
 #define W_HEIGHT 480
@@ -15,12 +16,30 @@
 #define Q_SIZE 5
 #define ATTACK 4
 
+#define T_SIZE 20
+
+enum TileColor
+{
+    BLUE,
+    GREEN,
+    RED,
+    YELLOW
+};
+
 enum PlayerFacing
 {
     DOWN, 
     UP,
     RIGHT, 
     LEFT
+};
+
+enum PlayerIndex
+{
+    PLAYER1,
+    PLAYER2,
+    PLAYER3,
+    PLAYER4
 };
 
 typedef struct p_input
@@ -30,6 +49,7 @@ typedef struct p_input
 
 typedef struct network
 {
+    struct pollfd *pfds;
     struct sockaddr_in servaddr, cli;
     int sockfd, connfd, addrlen, n;
 } network;
@@ -43,7 +63,10 @@ typedef struct player
         nx, ny,
         face, dir,
         xvel, yvel,
-        rx, ry;
+        rx, ry,
+        nid;
+
+    int color;
 
     unsigned char input[Q_SIZE];
 
@@ -51,22 +74,19 @@ typedef struct player
                     atk_counter, 
                     i_queue[Q_SIZE];
 
-    bool moving, attacking, a_hold, sprint, spawned;
+    bool moving:1, attacking:1, a_hold:1, sprint:1, spawned:1;
 } player;
 
 typedef struct game
 {
-    SDL_Window **window;
-    SDL_Renderer **renderer;
-    Texture *c_texture, *e_texture;
-
-    network nw;
-
-    player *p, *p2;
-
-    const char *ip;
-
-    bool running, host, client, kill;
+    SDL_Window      **window;
+    SDL_Renderer    **renderer;
+    Texture         *c_texture, *e_texture;
+    network         nw;
+    SDL_Rect        *c_clips;
+    player          *players;
+    const char      *ip;
+    bool            running, host, client, kill;
 } game;
 
 void c_initClips(SDL_Rect *);
@@ -75,15 +95,18 @@ void e_initClips(SDL_Rect *);
 bool collision(int x, int y, int x2, int y2);
 
 void playerInput(SDL_Event, game *, thrd_t *nw_thread);
+void setGamePlayers(player [4]);
 void setPlayerState(player *);
-void updatePlayer(player *);
 
-void updateOnOff(player *);
+void updateLocalPlayer(player *);
+void updateOtherPlayer(player *);
+
+void setMapTColor(SDL_Renderer *r, player p);
 
 void animatePlayer(player *);
 void playerWalking();
 void playerAttacking();
-void renderPlayer(game, int nmbr);
+void renderPlayers(game);
 
 void enqueue(unsigned char *q, unsigned char val);
 void dequeue(unsigned char *q, unsigned char val);

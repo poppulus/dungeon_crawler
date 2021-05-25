@@ -204,59 +204,58 @@ void playerInput(SDL_Event e, game *g, thrd_t *nw_thread)
                     break;
                     case SDLK_ESCAPE: g->running = false; break;
                     case SDLK_SPACE:
-                        g->p->input[4] = 1;
-                        if (!e.key.repeat && !g->p->attacking && !g->p->a_hold) 
+                        if (!e.key.repeat 
+                        && !g->players[PLAYER1].attacking 
+                        && !g->players[PLAYER1].a_hold) 
                         {
-                            g->p->aindex = 3;
-                            g->p->a_hold = true;
-                            enqueue(g->p->i_queue, ATTACK);
-                            g->p->attacking = true;
+                            g->players[PLAYER1].aindex = 3;
+                            g->players[PLAYER1].a_hold = true;
+                            enqueue(g->players[PLAYER1].i_queue, ATTACK);
+                            g->players[PLAYER1].attacking = true;
                         }
                     break;
                     case SDLK_LSHIFT: 
-                        if (!e.key.repeat) g->p->sprint = true; 
+                        if (!e.key.repeat) 
+                            g->players[PLAYER1].sprint = true; 
                     break;
                     case SDLK_w:
                         if (!e.key.repeat) 
-                        {enqueue(g->p->i_queue, UP); g->p->input[0] = 1;}
+                            enqueue(g->players[PLAYER1].i_queue, UP);
                     break;
                     case SDLK_s:
                         if (!e.key.repeat) 
-                        {enqueue(g->p->i_queue, DOWN); g->p->input[2] = 1;}
+                            enqueue(g->players[PLAYER1].i_queue, DOWN);
                     break;
                     case SDLK_a:
                         if (!e.key.repeat) 
-                        {enqueue(g->p->i_queue, LEFT); g->p->input[1] = 1;}
+                            enqueue(g->players[PLAYER1].i_queue, LEFT);
                     break;
                     case SDLK_d:
                         if (!e.key.repeat) 
-                        {enqueue(g->p->i_queue, RIGHT); g->p->input[3] = 1;}
+                            enqueue(g->players[PLAYER1].i_queue, RIGHT);
                     break;
                 }
             break;
             case SDL_KEYUP:
                 switch (e.key.keysym.sym)
                 {
-                    case SDLK_SPACE: 
-                        g->p->input[4] = 0; 
-                        g->p->a_hold = false; 
+                    case SDLK_SPACE:
+                        g->players[PLAYER1].a_hold = false; 
                     break;
-                    case SDLK_LSHIFT: g->p->sprint = false; break;
+                    case SDLK_LSHIFT: 
+                        g->players[PLAYER1].sprint = false; 
+                    break;
                     case SDLK_w:
-                        dequeue(g->p->i_queue, UP); 
-                        g->p->input[0] = 0;
+                        dequeue(g->players[PLAYER1].i_queue, UP);
                     break;
                     case SDLK_a:
-                        dequeue(g->p->i_queue, LEFT); 
-                        g->p->input[1] = 0;
+                        dequeue(g->players[PLAYER1].i_queue, LEFT);
                     break;
                     case SDLK_s:
-                        dequeue(g->p->i_queue, DOWN); 
-                        g->p->input[2] = 0;
+                        dequeue(g->players[PLAYER1].i_queue, DOWN);
                     break;
                     case SDLK_d:
-                        dequeue(g->p->i_queue, RIGHT); 
-                        g->p->input[3] = 0;
+                        dequeue(g->players[PLAYER1].i_queue, RIGHT);
                     break;
                 }
             break;
@@ -264,34 +263,42 @@ void playerInput(SDL_Event e, game *g, thrd_t *nw_thread)
     }
 }
 
+void setGamePlayers(player p[4])
+{
+    for (int i = 0; i < 4; i++)
+    {
+        setPlayerState(&p[i]);
+    }
+}
+
 void setPlayerState(player *p)
 {
     /*
-    //p->clips = (SDL_Rect *)&c_clips,
     p->w = 14;
     p->h = 30;
-    p->x = 320 - 32;
-    p->y = 240 - 32;
-    p->rx = (320 - 32) / 20;
-    p->ry = (240 - 32) / 20;
+    p->x = 320 - p->w;
+    p->y = 240 - p->h;
+    p->rx = (320 - p->w) / T_SIZE;
+    p->ry = (240 - p->h) / T_SIZE;
     p->dir = -1;
     p->face = DOWN;
     p->xvel = 0;
     p->yvel = 0;
-    p->input = {0, 0, 0, 0};
     p->moving = false;
     p->attacking = false;
     p->a_hold = false;
     p->sprint = false;
+    p->spawned = false;
     p->acounter = 0;
     p->aindex = 1;
     p->atk_counter = 0;
-    p->i_queue = {255, 255 ,255 ,255};
-    p->a_hitBox = {.w = 1, .h = 1, .x = player1.x + 8, .y = player1.y + 40};
     */
+
+    memset(p, 0, sizeof(*p));
+    memset(p->i_queue, 255, sizeof(p->i_queue));
 }
 
-void updatePlayer(player *p)
+void updateLocalPlayer(player *p)
 {
     p->xvel = 0;
     p->yvel = 0;
@@ -344,7 +351,7 @@ void updatePlayer(player *p)
     p->y += p->yvel;
 }
 
-void updateOnOff(player *p)
+void updateOtherPlayer(player *p)
 {
     if (p->spawned)
     {
@@ -431,6 +438,25 @@ void updateOnOff(player *p)
     }
 }
 
+void setMapTColor(SDL_Renderer *r, player p)
+{
+    switch (p.color)
+    {
+        case BLUE: 
+            SDL_SetRenderDrawColor(r, 0x00, 0x00, 0xff, 0xff); 
+        break;
+        case GREEN:
+            SDL_SetRenderDrawColor(r, 0x00, 0xff, 0x00, 0xff); 
+        break;
+        case RED:
+            SDL_SetRenderDrawColor(r, 0xff, 0x00, 0x00, 0xff); 
+        break;
+        case YELLOW:
+            SDL_SetRenderDrawColor(r, 0xff, 0xff, 0x00, 0xff); 
+        break;
+    }
+}
+
 void animatePlayer(player *p)
 {
     if (p->attacking)
@@ -500,27 +526,25 @@ void animatePlayer(player *p)
     }
 }
 
-void renderPlayer(game G, int playernmbr)
+void renderPlayers(game G)
 {
-    player *p;
+    player p;
 
-    switch (playernmbr)
+    for (int i = 0; i < 4; i++)
     {
-        case 0: p = G.p; break;
-        case 1: p = G.p2; break;
-    }
+        if (G.players[i].spawned)
+        {
+            p = G.players[i];
+            bool flip = (p.face == 3 ? true : false);
+            int c_index;
+        
+            if (p.face == 3) c_index = (2 * 7) + p.aindex;
+            else c_index = (p.face * 7) + p.aindex;
 
-    if (p->spawned)
-    {
-        bool flip = (p->face == 3 ? true : false);
-        int c_index;
-    
-        if (p->face == 3) c_index = (2 * 7) + p->aindex;
-        else c_index = (p->face * 7) + p->aindex;
-
-        renderTexture(*G.renderer, G.c_texture, 
-            p->x - 16, p->y - 28, 
-            &G.p->clips[c_index], flip);
+            renderTexture(*G.renderer, G.c_texture, 
+                p.x - 16, p.y - 28, 
+                &G.c_clips[c_index], flip);
+        }
     }
 }
 
@@ -587,14 +611,23 @@ int setup_server(void *ptr)
 	nw->addrlen = sizeof(nw->cli);
 
     // Now server is ready to listen and verification
-	if ((listen(nw->sockfd, 1)) != 0) {
-		printf("Listen failed...\n");
+	if ((listen(nw->sockfd, 3)) == -1) {
+		perror("listen");
         thrd_exit(1);
 	}
-	else
-		printf("Server listening..\n");
+	
+	printf("Server listening..\n");
+
+    // just for testing !!!
+    G->players[PLAYER1].spawned = true;
+    G->players[PLAYER1].nid = nw->sockfd;
+
+    host_loop(G);
+    G->host = false;
+    G->kill = false;
 
 	// Accept the data packet from client and verification
+    /*
 	nw->connfd = accept(nw->sockfd, (struct sockaddr*)&nw->cli, &nw->addrlen);
 	if (nw->connfd < 0) {
 		printf("server acccept failed...\n");
@@ -602,15 +635,19 @@ int setup_server(void *ptr)
 	else
     {
         printf("server acccept the client...\n");
+
+        // just for testing !!!
+        G->players[PLAYER2].nid = nw->connfd;
+        G->players[PLAYER1].spawned = true;
+        G->players[PLAYER2].spawned = true;
+
         host_loop(G);
         G->host = false;
         G->kill = false;
     }
+    */
 
     close(G->nw.sockfd);
-    close(G->nw.connfd);
-
-    memset(G->p2, 0, sizeof(*G->p2));
 
     printf("host thread terminated\n");
     thrd_exit(0);
@@ -645,19 +682,15 @@ int connect_to_server(void *ptr)
     {
         printf("connected to the server..\n");
 
-        G->p->x = (W_WIDTH / 2) - G->p->w;
-        G->p->y = (W_HEIGHT / 2) - G->p->h;
+        // testing !!!
+        G->players[PLAYER1].spawned = true;
+        G->players[PLAYER2].spawned = true;
 
         client_loop(G);
-
         G->client = false;
         G->kill = false;
     }
 
-    close(G->nw.sockfd);
-
-    memset(G->p2, 0, sizeof(*G->p2));
-    
     printf("client thread terminated\n");
     thrd_exit(0);
     return 0;
@@ -666,16 +699,103 @@ int connect_to_server(void *ptr)
 void host_loop(game *G)
 {
     Uint32 timer, delta;
-    short nbytes, buffer[4];
+    short nbytes, buffer[5];
     bool q = false;
+
+    int fd_counter = 1;
+
+    G->nw.pfds[0].fd = G->nw.sockfd;
+    G->nw.pfds[0].events = POLLIN;
 
     printf("host loop\n");
 
     while (!q && G->running && !G->kill)
     {
         timer = SDL_GetTicks();
+        
+        int poll_count = poll(G->nw.pfds, fd_counter, -1);
 
-        nbytes = recv(G->nw.connfd, buffer, sizeof(buffer), 0);
+        if (poll_count == -1)
+        {
+            perror("poll");
+            thrd_exit(1);
+        }
+
+        for (int p = 0; p < fd_counter; p++)
+        {
+            if (G->nw.pfds[p].revents & POLLIN)
+            {
+                if (G->nw.pfds[p].fd == G->nw.sockfd)
+                {
+                    G->nw.addrlen = sizeof(G->nw.cli);
+                    G->nw.connfd = accept(G->nw.sockfd, (struct sockaddr*)&G->nw.cli, &G->nw.addrlen);
+
+                    if (G->nw.connfd == -1) perror("accept");
+                    else
+                    {
+                        printf("server acccepted the client...\n");
+                        G->nw.pfds[p].fd = G->nw.connfd;
+                        G->nw.pfds[p].events = POLLIN;
+
+                        G->players[fd_counter].nid = G->nw.connfd;
+                        G->players[fd_counter].spawned = true;
+
+                        fd_counter++;
+                    }
+                    
+                }
+                else 
+                {
+                    nbytes = recv(G->nw.pfds[p].fd, buffer, sizeof(buffer), 0);
+
+                    if (nbytes <= 0)
+                    {
+                        if (nbytes == 0) printf("socket %d hung up\n", G->nw.pfds[p].fd);
+                        else perror("recv");
+
+                        close(G->nw.pfds[p].fd);
+
+                        G->nw.pfds[p].fd = 0;
+                        G->nw.pfds[p].events = 0;
+
+                        G->players[p].nid = 0;
+                        G->players[p].spawned = false;
+
+                        fd_counter--;
+                    }
+                    else
+                    {
+                        for (int i = 0; i < fd_counter; i++)
+                        {
+                            if (G->nw.pfds[p].fd == G->players[i].nid 
+                            && G->nw.pfds[p].fd != G->nw.sockfd)
+                            {
+                                G->players[i].nx = buffer[1];
+                                G->players[i].ny = buffer[2];
+                                G->players[i].attacking = buffer[3];
+                                G->players[i].atk_counter = buffer[4];
+                            }
+                        }
+
+                        bzero(buffer, sizeof(buffer));
+                    }
+                    
+                    buffer[0] = G->nw.sockfd;
+                    buffer[1] = G->players[PLAYER1].x;
+                    buffer[2] = G->players[PLAYER1].y;
+                    buffer[3] = G->players[PLAYER1].attacking;
+                    buffer[4] = G->players[PLAYER1].atk_counter;
+
+                    for (int i = 1; i < fd_counter; i++)
+                    {
+                        if (G->players[i].spawned)
+                        {
+                            if (send(G->players[i].nid, buffer, sizeof(buffer), 0) < 0) perror("send");
+                        }
+                    }
+                }
+            }
+        }
 
         /* udp
         recvfrom(G->nw.sockfd, buffer, sizeof(buffer), MSG_WAITALL, 
@@ -686,30 +806,6 @@ void host_loop(game *G)
                 (struct sockaddr*)&G->nw.cli, 
                 G->nw.addrlen);
         */
-
-        if (nbytes <= 0)
-        {
-            printf("socket %d hung up\n", G->nw.connfd);
-            perror("status: ");
-            q = true;
-        }
-        else if (nbytes > 0)
-        {
-            if (!G->p2->spawned) G->p2->spawned = true;
-            G->p2->nx = buffer[0];
-            G->p2->ny = buffer[1];
-            G->p2->attacking = buffer[2];
-            G->p2->atk_counter = buffer[3];
-
-            bzero(buffer, sizeof(buffer));
-        }
-
-        buffer[0] = G->p->x;
-        buffer[1] = G->p->y;
-        buffer[2] = G->p->attacking;
-        buffer[3] = G->p->atk_counter;
-
-        send(G->nw.connfd, buffer, sizeof(buffer), 0);
 
         bzero(buffer, sizeof(buffer));
 
@@ -722,7 +818,7 @@ void host_loop(game *G)
 void client_loop(game *G)
 {
     int nbytes, timer, delta;
-    short buffer[4];
+    short buffer[5];
     bool q = false;
 
     printf("client loop\n");
@@ -741,10 +837,11 @@ void client_loop(game *G)
                 sizeof(G->nw.servaddr));
         */
 
-        buffer[0] = G->p->x;
-        buffer[1] = G->p->y;
-        buffer[2] = G->p->attacking;
-        buffer[3] = G->p->atk_counter;
+        buffer[0] = G->nw.sockfd;
+        buffer[1] = G->players[PLAYER1].x;
+        buffer[2] = G->players[PLAYER1].y;
+        buffer[3] = G->players[PLAYER1].attacking;
+        buffer[4] = G->players[PLAYER1].atk_counter;
 
         send(G->nw.sockfd, buffer, sizeof(buffer), 0);
 
@@ -754,17 +851,18 @@ void client_loop(game *G)
 
         if (nbytes <= 0)
         {
-            printf("socket %d hung up\n", G->nw.sockfd);
-            perror("status: ");
+            if (nbytes == 0) printf("socket %d hung up\n", G->nw.sockfd);
+            else perror("recv");
+            close(G->nw.sockfd);
             q = true;
         }
         else if (nbytes > 0)
         {
-            if (!G->p2->spawned) G->p2->spawned = true;
-            G->p2->nx = buffer[0];
-            G->p2->ny = buffer[1];
-            G->p2->attacking = buffer[2];
-            G->p2->atk_counter = buffer[3];
+            G->players[PLAYER2].nid = buffer[0];
+            G->players[PLAYER2].nx = buffer[1];
+            G->players[PLAYER2].ny = buffer[2];
+            G->players[PLAYER2].attacking = buffer[3];
+            G->players[PLAYER2].atk_counter = buffer[4];
 
             bzero(buffer, sizeof(buffer));
         }

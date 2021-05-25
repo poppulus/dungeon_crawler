@@ -20,85 +20,29 @@ int main(int argc, char const *argv[])
         .y = 0
     };
 
-    SDL_Rect arrow_display[5] = {
-        [0].w = 20,
-        [0].h = 20,
-        [0].x = 320,
-        [0].y = 0, 
-
-        [1].w = 20,
-        [1].h = 20,
-        [1].x = 320 - 20,
-        [1].y = 20, 
-
-        [2].w = 20,
-        [2].h = 20,
-        [2].x = 320,
-        [2].y = 20, 
-
-        [3].w = 20,
-        [3].h = 20,
-        [3].x = 320 + 20,
-        [3].y = 20,
-
-        [4].w = 60,
-        [4].h = 20,
-        [4].x = 320 - 80,
-        [4].y = 20,
-    };
-
-    player player1 = {
-        .clips = (SDL_Rect *)&c_clips,
-        .w = 14,
-        .h = 30,
-        .x = 320 - 32,
-        .y = 240 - 32,
-        .rx = (320 - 32) / 20,
-        .ry = (240 - 32) / 20,
-        .dir = -1,
-        .face = DOWN,
-        .xvel = 0,
-        .yvel = 0,
-        .input = {0, 0, 0, 0},
-        .moving = false,
-        .attacking = false,
-        .a_hold = false,
-        .sprint = false,
-        .spawned = true,
-        .acounter = 0,
-        .aindex = 1,
-        .atk_counter = 0,
-        .i_queue = {255, 255 ,255 ,255},
-        .a_hitBox = {.w = 1, .h = 1, .x = player1.x + 8, .y = player1.y + 40}
-    };
-
-    player player2;
+    player g_players[4];
 
     game GAME = {
         .window = &window,
         .renderer = &renderer,
         .c_texture = &c_texture,
         .e_texture = &e_texture,
-        //.ip = "0.0.0.0",
-        .p = &player1,
-        .p2 = &player2,
+        .players = g_players,
         .running = true,
         .host = false,
         .client = false,
-        .kill = false
+        .kill = false,
+        .c_clips = c_clips
     };
+
+    GAME.nw.pfds = malloc(sizeof *GAME.nw.pfds * 4);
 
     int timer, delta;
     thrd_t nw_thread;
     short buffer[4];
 
-    if (argc > 1) 
-    {
-        GAME.ip = argv[1];
-        /*
-        memcpy(GAME.ip, argv[1], sizeof GAME.ip);
-        */
-    }
+    if (argc > 1) GAME.ip = argv[1];
+    else GAME.ip = "0.0.0.0";
 
     if (initSdl(&window, &renderer))
     {
@@ -108,8 +52,9 @@ int main(int argc, char const *argv[])
             c_initClips(c_clips);
             //e_initClips(e_clips);
 
-            memset(&player2, 0, sizeof(player2));
             memset(map_blocks, 0, (32 * 24));
+
+            setGamePlayers(g_players);
 
             while (GAME.running)
             {
@@ -120,7 +65,9 @@ int main(int argc, char const *argv[])
                 SDL_RenderClear(renderer);
 
                 playerInput(e, &GAME, &nw_thread);
-                updatePlayer(&player1);
+                updateLocalPlayer(&g_players[PLAYER1]);
+                
+                for (int p = 1; p < 4; p++) updateOtherPlayer(&g_players[p]);
 
                 for (int y = 0; y < 24; y++)
                 {
@@ -129,49 +76,36 @@ int main(int argc, char const *argv[])
                         block.x = x * 20;
                         block.y = y * 20;
 
-                        if (collision(x * 20, y * 20, player1.x, player1.y)) 
+                        if (collision(x * 20, y * 20, g_players[PLAYER1].x, g_players[PLAYER1].y) 
+                        && g_players[PLAYER1].spawned) 
                             map_blocks[y][x] = 1;
-
+/*
                         if (player1.attacking)
                         {
                             // check ranged attack spot
                             if (collision(x * 20, y * 20, player1.rx, player1.ry)) 
                                 map_blocks[y][x] = 1;
                         }
-                        
+*/
                         if (map_blocks[y][x]) 
                         {
-                            SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0xff, 0xff);
+                            switch (map_blocks[y][x])
+                            {
+                                case 1: SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0xff, 0xff); 
+                                break;
+                                case 2: SDL_SetRenderDrawColor(renderer, 0x00, 0xff, 0x00, 0xff); 
+                                break;
+                                case 3: SDL_SetRenderDrawColor(renderer, 0xff, 0x00, 0x00, 0xff); 
+                                break;
+                                case 4: SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0x00, 0xff); 
+                                break;
+                            }
                             SDL_RenderFillRect(*GAME.renderer, &block);
                         }
                     }
                 }
-                // p1
-                renderPlayer(GAME, 0);
-                // p2
-                if (GAME.client || GAME.host)
-                {updateOnOff(&player2); renderPlayer(GAME, 1);}
-
-                SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
-
-                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[0]);
-                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[1]);
-                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[2]);
-                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[3]);
-                SDL_RenderDrawRect(*GAME.renderer, &arrow_display[4]);
-
-                SDL_SetRenderDrawColor(renderer, 0x00, 0xff, 0x00, 0xff);
-
-                if (player1.input[0])
-                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[0]);
-                if (player1.input[1])
-                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[1]);
-                if (player1.input[2])
-                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[2]);
-                if (player1.input[3])
-                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[3]);
-                if (player1.input[4])
-                    SDL_RenderFillRect(*GAME.renderer, &arrow_display[4]);
+                
+                renderPlayers(GAME);
 
                 // put it all on screen
                 SDL_RenderPresent(renderer);
