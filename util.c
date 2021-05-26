@@ -175,13 +175,14 @@ bool collision(int x, int y, int x2, int y2)
     return true;
 }
 
-void playerInput(SDL_Event e, game *g, thrd_t *nw_thread)
+void menuInput(SDL_Event e, game *g, thrd_t *nw_thread)
 {
     while (SDL_PollEvent(&e) != 0)
     {
         switch (e.type)
         {
-            case SDL_QUIT: g->running = false; break;
+            case SDL_QUIT: g->running = false; 
+            break;
             case SDL_KEYDOWN:
                 switch (e.key.keysym.sym)
                 {
@@ -203,36 +204,56 @@ void playerInput(SDL_Event e, game *g, thrd_t *nw_thread)
                         g->kill = true;
                     break;
                     case SDLK_ESCAPE: g->running = false; break;
+                }
+            break;
+        }
+    }
+}
+
+void playInput(SDL_Event e, game *g)
+{
+    while (SDL_PollEvent(&e) != 0)
+    {
+        switch (e.type)
+        {
+            case SDL_QUIT: g->running = false; break;
+            case SDL_KEYDOWN:
+                switch (e.key.keysym.sym)
+                {
+                    case SDLK_k:
+                        g->kill = true;
+                    break;
+                    case SDLK_ESCAPE: g->running = false; break;
                     case SDLK_SPACE:
                         if (!e.key.repeat 
-                        && !g->players[PLAYER1].attacking 
-                        && !g->players[PLAYER1].a_hold) 
+                        && !g->c_player->attacking 
+                        && !g->c_player->a_hold) 
                         {
-                            g->players[PLAYER1].aindex = 3;
-                            g->players[PLAYER1].a_hold = true;
-                            enqueue(g->players[PLAYER1].i_queue, ATTACK);
-                            g->players[PLAYER1].attacking = true;
+                            g->c_player->aindex = 3;
+                            g->c_player->a_hold = true;
+                            enqueue(g->c_player->i_queue, ATTACK);
+                            g->c_player->attacking = true;
                         }
                     break;
                     case SDLK_LSHIFT: 
                         if (!e.key.repeat) 
-                            g->players[PLAYER1].sprint = true; 
+                            g->c_player->sprint = true; 
                     break;
                     case SDLK_w:
                         if (!e.key.repeat) 
-                            enqueue(g->players[PLAYER1].i_queue, UP);
+                            enqueue(g->c_player->i_queue, UP);
                     break;
                     case SDLK_s:
                         if (!e.key.repeat) 
-                            enqueue(g->players[PLAYER1].i_queue, DOWN);
+                            enqueue(g->c_player->i_queue, DOWN);
                     break;
                     case SDLK_a:
                         if (!e.key.repeat) 
-                            enqueue(g->players[PLAYER1].i_queue, LEFT);
+                            enqueue(g->c_player->i_queue, LEFT);
                     break;
                     case SDLK_d:
                         if (!e.key.repeat) 
-                            enqueue(g->players[PLAYER1].i_queue, RIGHT);
+                            enqueue(g->c_player->i_queue, RIGHT);
                     break;
                 }
             break;
@@ -240,22 +261,22 @@ void playerInput(SDL_Event e, game *g, thrd_t *nw_thread)
                 switch (e.key.keysym.sym)
                 {
                     case SDLK_SPACE:
-                        g->players[PLAYER1].a_hold = false; 
+                        g->c_player->a_hold = false; 
                     break;
                     case SDLK_LSHIFT: 
-                        g->players[PLAYER1].sprint = false; 
+                        g->c_player->sprint = false; 
                     break;
                     case SDLK_w:
-                        dequeue(g->players[PLAYER1].i_queue, UP);
+                        dequeue(g->c_player->i_queue, UP);
                     break;
                     case SDLK_a:
-                        dequeue(g->players[PLAYER1].i_queue, LEFT);
+                        dequeue(g->c_player->i_queue, LEFT);
                     break;
                     case SDLK_s:
-                        dequeue(g->players[PLAYER1].i_queue, DOWN);
+                        dequeue(g->c_player->i_queue, DOWN);
                     break;
                     case SDLK_d:
-                        dequeue(g->players[PLAYER1].i_queue, RIGHT);
+                        dequeue(g->c_player->i_queue, RIGHT);
                     break;
                 }
             break;
@@ -611,7 +632,7 @@ int setup_server(void *ptr)
 	nw->addrlen = sizeof(nw->cli);
 
     // Now server is ready to listen and verification
-	if ((listen(nw->sockfd, 3)) == -1) {
+	if ((listen(nw->sockfd, 10)) == -1) {
 		perror("listen");
         thrd_exit(1);
 	}
@@ -619,10 +640,14 @@ int setup_server(void *ptr)
 	printf("Server listening..\n");
 
     // just for testing !!!
-    G->players[PLAYER1].spawned = true;
-    G->players[PLAYER1].nid = nw->sockfd;
+    G->c_player = &G->players[PLAYER1];
+    G->c_player->spawned = true;
+    G->c_player->nid = nw->sockfd;
+
+    G->state = PLAY;
 
     host_loop(G);
+
     G->host = false;
     G->kill = false;
 
@@ -658,6 +683,7 @@ int connect_to_server(void *ptr)
 {
     game *G = ptr;
     network *nw = &G->nw;
+
     // socket create and varification
 	nw->sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (nw->sockfd == -1) {
@@ -682,10 +708,19 @@ int connect_to_server(void *ptr)
     {
         printf("connected to the server..\n");
 
-        // testing !!!
-        G->players[PLAYER1].spawned = true;
+        short buffer[20];
 
-        client_loop(G);
+        // testing !!!
+        G->c_player = NULL;
+
+        if (recv(G->nw.sockfd, buffer, sizeof(buffer), 0) == -1) 
+            perror("recv");
+        else 
+        {
+            G->nw.connfd = buffer[0];
+            client_loop(G);
+        }
+
         G->client = false;
         G->kill = false;
     }
@@ -739,6 +774,11 @@ void host_loop(game *G)
                         G->players[fd_counter].nid = G->nw.connfd;
                         G->players[fd_counter].spawned = true;
 
+                        buffer[0] = G->nw.connfd;
+
+                        if (send(G->nw.connfd, buffer, sizeof(buffer), 0) == -1) 
+                            perror("send");
+
                         fd_counter++;
                     }
                     
@@ -763,10 +803,9 @@ void host_loop(game *G)
                     }
                     else
                     {
-                        for (int i = 0; i < fd_counter; i++)
+                        for (int i = 1; i < fd_counter; i++)
                         {
-                            if (G->nw.pfds[p].fd == G->players[i].nid 
-                            && G->nw.pfds[p].fd != G->nw.sockfd)
+                            if (G->nw.pfds[p].fd == G->players[i].nid)
                             {
                                 G->players[i].nx = buffer[1];
                                 G->players[i].ny = buffer[2];
@@ -777,45 +816,45 @@ void host_loop(game *G)
 
                         bzero(buffer, sizeof(buffer));
                     }
-                    
-                    switch (fd_counter)
-                    {
-                        case 4:
-                            buffer[N_P4] = G->players[PLAYER4].nid;
-                            buffer[N_P4+1] = G->players[PLAYER4].x;
-                            buffer[N_P4+2] = G->players[PLAYER4].y;
-                            buffer[N_P4+3] = G->players[PLAYER4].attacking;
-                            buffer[N_P4+4] = G->players[PLAYER4].atk_counter;
-                        case 3:
-                            buffer[N_P3] = G->players[PLAYER3].nid;
-                            buffer[N_P3+1] = G->players[PLAYER3].x;
-                            buffer[N_P3+2] = G->players[PLAYER3].y;
-                            buffer[N_P3+3] = G->players[PLAYER3].attacking;
-                            buffer[N_P3+4] = G->players[PLAYER3].atk_counter;
-                        case 2:
-                            buffer[N_P2] = G->players[PLAYER2].nid;
-                            buffer[N_P2+1] = G->players[PLAYER2].x;
-                            buffer[N_P2+2] = G->players[PLAYER2].y;
-                            buffer[N_P2+3] = G->players[PLAYER2].attacking;
-                            buffer[N_P2+4] = G->players[PLAYER2].atk_counter;
-
-                            buffer[N_P1] = G->nw.sockfd;
-                            buffer[N_P1+1] = G->players[PLAYER1].x;
-                            buffer[N_P1+2] = G->players[PLAYER1].y;
-                            buffer[N_P1+3] = G->players[PLAYER1].attacking;
-                            buffer[N_P1+4] = G->players[PLAYER1].atk_counter;
-                        break;
-                    }
-
-                    for (int j = 1; j < fd_counter; j++)
-                    {
-                        if (G->players[j].spawned)
-                        {
-                            if (send(G->players[j].nid, buffer, sizeof(buffer), 0) == -1) 
-                                perror("send");
-                        }
-                    }
                 }
+            }
+        }
+
+        switch (fd_counter)
+        {
+            case 4:
+                buffer[N_P4] = G->players[PLAYER4].nid;
+                buffer[N_P4+1] = G->players[PLAYER4].x;
+                buffer[N_P4+2] = G->players[PLAYER4].y;
+                buffer[N_P4+3] = G->players[PLAYER4].attacking;
+                buffer[N_P4+4] = G->players[PLAYER4].atk_counter;
+            case 3:
+                buffer[N_P3] = G->players[PLAYER3].nid;
+                buffer[N_P3+1] = G->players[PLAYER3].x;
+                buffer[N_P3+2] = G->players[PLAYER3].y;
+                buffer[N_P3+3] = G->players[PLAYER3].attacking;
+                buffer[N_P3+4] = G->players[PLAYER3].atk_counter;
+            case 2:
+                buffer[N_P2] = G->players[PLAYER2].nid;
+                buffer[N_P2+1] = G->players[PLAYER2].x;
+                buffer[N_P2+2] = G->players[PLAYER2].y;
+                buffer[N_P2+3] = G->players[PLAYER2].attacking;
+                buffer[N_P2+4] = G->players[PLAYER2].atk_counter;
+
+                buffer[N_P1] = G->nw.sockfd;
+                buffer[N_P1+1] = G->players[PLAYER1].x;
+                buffer[N_P1+2] = G->players[PLAYER1].y;
+                buffer[N_P1+3] = G->players[PLAYER1].attacking;
+                buffer[N_P1+4] = G->players[PLAYER1].atk_counter;
+            break;
+        }
+
+        for (int j = 1; j < fd_counter; j++)
+        {
+            if (G->players[j].spawned)
+            {
+                if (send(G->players[j].nid, buffer, sizeof(buffer), 0) == -1) 
+                    perror("send");
             }
         }
 
@@ -859,14 +898,17 @@ void client_loop(game *G)
                 sizeof(G->nw.servaddr));
         */
 
-        buffer[0] = G->nw.sockfd;
-        buffer[1] = G->players[PLAYER1].x;
-        buffer[2] = G->players[PLAYER1].y;
-        buffer[3] = G->players[PLAYER1].attacking;
-        buffer[4] = G->players[PLAYER1].atk_counter;
+       buffer[0] = G->nw.connfd;
+
+       if (G->c_player != NULL)
+       { 
+            buffer[1] = G->c_player->x;
+            buffer[2] = G->c_player->y;
+            buffer[3] = G->c_player->attacking;
+            buffer[4] = G->c_player->atk_counter; 
+       }
 
         send(G->nw.sockfd, buffer, sizeof(buffer), 0);
-
         bzero(buffer, sizeof(buffer));
 
         nbytes = recv(G->nw.sockfd, buffer, sizeof(buffer), 0);
@@ -881,15 +923,23 @@ void client_loop(game *G)
         else
         {
             // absolutely horrible, only for testing !!! - begin
-            G->players[PLAYER2].nid = buffer[N_P1];
-            G->players[PLAYER2].nx = buffer[N_P1+1];
-            G->players[PLAYER2].ny = buffer[N_P1+2];
-            G->players[PLAYER2].attacking = buffer[N_P1+3];
-            G->players[PLAYER2].atk_counter = buffer[N_P1+4];
-            G->players[PLAYER2].spawned = true;
-            
-            if (buffer[N_P2] == G->nw.sockfd)
+            G->players[PLAYER1].nid = buffer[N_P1];
+            G->players[PLAYER1].nx = buffer[N_P1+1];
+            G->players[PLAYER1].ny = buffer[N_P1+2];
+            G->players[PLAYER1].attacking = buffer[N_P1+3];
+            G->players[PLAYER1].atk_counter = buffer[N_P1+4];
+            G->players[PLAYER1].spawned = true;
+
+            if (buffer[N_P2] == G->nw.connfd)
             {
+                if (G->c_player == NULL) 
+                {
+                    G->c_player = &G->players[PLAYER2];
+                    G->c_player->nid = G->nw.connfd;
+                    G->c_player->spawned = true;
+                    G->state = PLAY;
+                }
+
                 if (buffer[N_P3] != 0)
                 {
                     G->players[PLAYER3].nid = buffer[N_P3];
@@ -909,16 +959,24 @@ void client_loop(game *G)
                     G->players[PLAYER4].spawned = true;
                 }
             }
-            else if (buffer[N_P3] == G->nw.sockfd)
+            else if (buffer[N_P3] == G->nw.connfd)
             {
+                if (G->c_player == NULL) 
+                {
+                    G->c_player = &G->players[PLAYER3]; 
+                    G->c_player->nid = G->nw.connfd;
+                    G->c_player->spawned = true;
+                    G->state = PLAY;
+                }
+
                 if (buffer[N_P2] != 0)
                 {
-                    G->players[PLAYER3].nid = buffer[N_P2];
-                    G->players[PLAYER3].nx = buffer[N_P2+1];
-                    G->players[PLAYER3].ny = buffer[N_P2+2];
-                    G->players[PLAYER3].attacking = buffer[N_P2+3];
-                    G->players[PLAYER3].atk_counter = buffer[N_P2+4];
-                    G->players[PLAYER3].spawned = true;
+                    G->players[PLAYER2].nid = buffer[N_P2];
+                    G->players[PLAYER2].nx = buffer[N_P2+1];
+                    G->players[PLAYER2].ny = buffer[N_P2+2];
+                    G->players[PLAYER2].attacking = buffer[N_P2+3];
+                    G->players[PLAYER2].atk_counter = buffer[N_P2+4];
+                    G->players[PLAYER2].spawned = true;
                 }
                 if (buffer[N_P4] != 0)
                 {
@@ -930,27 +988,36 @@ void client_loop(game *G)
                     G->players[PLAYER4].spawned = true;
                 }
             }
-            else if (buffer[N_P4] == G->nw.sockfd)
+            else if (buffer[N_P4] == G->nw.connfd)
             {
+                if (G->c_player == NULL) 
+                {
+                    G->c_player = &G->players[PLAYER4]; 
+                    G->c_player->nid = G->nw.connfd;
+                    G->c_player->spawned = true;
+                    G->state = PLAY;
+                }
+
                 if (buffer[N_P2] != 0)
                 {
-                    G->players[PLAYER3].nid = buffer[N_P2];
-                    G->players[PLAYER3].nx = buffer[N_P2+1];
-                    G->players[PLAYER3].ny = buffer[N_P2+2];
-                    G->players[PLAYER3].attacking = buffer[N_P2+3];
-                    G->players[PLAYER3].atk_counter = buffer[N_P2+4];
-                    G->players[PLAYER3].spawned = true;
+                    G->players[PLAYER2].nid = buffer[N_P2];
+                    G->players[PLAYER2].nx = buffer[N_P2+1];
+                    G->players[PLAYER2].ny = buffer[N_P2+2];
+                    G->players[PLAYER2].attacking = buffer[N_P2+3];
+                    G->players[PLAYER2].atk_counter = buffer[N_P2+4];
+                    G->players[PLAYER2].spawned = true;
                 }
                 if (buffer[N_P3] != 0)
                 {
-                    G->players[PLAYER4].nid = buffer[N_P3];
-                    G->players[PLAYER4].nx = buffer[N_P3+1];
-                    G->players[PLAYER4].ny = buffer[N_P3+2];
-                    G->players[PLAYER4].attacking = buffer[N_P3+3];
-                    G->players[PLAYER4].atk_counter = buffer[N_P3+4];
-                    G->players[PLAYER4].spawned = true;
+                    G->players[PLAYER3].nid = buffer[N_P3];
+                    G->players[PLAYER3].nx = buffer[N_P3+1];
+                    G->players[PLAYER3].ny = buffer[N_P3+2];
+                    G->players[PLAYER3].attacking = buffer[N_P3+3];
+                    G->players[PLAYER3].atk_counter = buffer[N_P3+4];
+                    G->players[PLAYER3].spawned = true;
                 }
             }
+
             //  - end
 
             bzero(buffer, sizeof(buffer));

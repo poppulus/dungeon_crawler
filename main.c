@@ -32,9 +32,11 @@ int main(int argc, char const *argv[])
         .host = false,
         .client = false,
         .kill = false,
-        .c_clips = c_clips
+        .c_clips = c_clips,
+        .state = MENU
     };
 
+    GAME.c_player = &g_players[PLAYER1];
     GAME.nw.pfds = malloc(sizeof *GAME.nw.pfds * 4);
 
     int timer, delta;
@@ -64,11 +66,26 @@ int main(int argc, char const *argv[])
                 SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
                 SDL_RenderClear(renderer);
 
-                playerInput(e, &GAME, &nw_thread);
-                updateLocalPlayer(&g_players[PLAYER1]);
-                
-                for (int p = 1; p < 4; p++) 
-                    updateOtherPlayer(&g_players[p]);
+                switch (GAME.state)
+                {
+                    case MENU:
+                        menuInput(e, &GAME, &nw_thread);
+                    break;
+                    case HOST:
+                    break;
+                    case JOIN:
+                    break;
+                    case PLAY:
+                        playInput(e, &GAME);
+                        updateLocalPlayer(GAME.c_player);
+                    break;
+                }
+
+                for (int p = 0; p < 4; p++) 
+                {
+                    if (&g_players[p] != GAME.c_player)
+                        updateOtherPlayer(&g_players[p]);
+                }
 
                 for (int y = 0; y < 24; y++)
                 {

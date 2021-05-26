@@ -50,6 +50,14 @@ enum N_PINDEX
     N_P4 = 15
 };
 
+enum G_STATE
+{
+    MENU,
+    HOST,
+    JOIN,
+    PLAY
+};
+
 typedef struct p_input
 {
     int last, current;
@@ -93,7 +101,9 @@ typedef struct game
     network         nw;
     SDL_Rect        *c_clips;
     player          *players;
+    player          *c_player;
     const char      *ip;
+    unsigned char   state;
     bool            running, host, client, kill;
 } game;
 
@@ -102,7 +112,9 @@ void e_initClips(SDL_Rect *);
 
 bool collision(int x, int y, int x2, int y2);
 
-void playerInput(SDL_Event, game *, thrd_t *nw_thread);
+void menuInput(SDL_Event, game *, thrd_t *nw_thread);
+void playInput(SDL_Event, game *);
+
 void setGamePlayers(player [4]);
 void setPlayerState(player *);
 
