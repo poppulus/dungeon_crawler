@@ -70,13 +70,19 @@ typedef struct network
     int sockfd, connfd, addrlen, n;
 } network;
 
+typedef struct p_next
+{
+    int x, y, atk_counter;
+    bool attacking;
+} p_next;
+
 typedef struct player
 {
     SDL_Rect *clips, a_hitBox;
+    p_next nextmove;
 
     int w, h, 
         x, y,
-        nx, ny,
         face, dir,
         xvel, yvel,
         rx, ry,
@@ -111,11 +117,12 @@ void c_initClips(SDL_Rect *);
 void e_initClips(SDL_Rect *);
 
 bool collision(int x, int y, int x2, int y2);
+void checkMapCollision(game, SDL_Rect *block, unsigned char (*map_blocks)[]);
 
 void menuInput(SDL_Event, game *, thrd_t *nw_thread);
 void playInput(SDL_Event, game *);
 
-void setGamePlayers(player [4]);
+void initPlayers(player [4]);
 void setPlayerState(player *);
 
 void updateLocalPlayer(player *);
@@ -137,5 +144,4 @@ int connect_to_server(void *ptr);
 void host_loop(game *G);
 void client_loop(game *G);
 
-int recv_data(void *ptr);
-int send_data(void *ptr);
+void c_player_update(game *G, int i, short *buffer);

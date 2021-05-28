@@ -56,7 +56,7 @@ int main(int argc, char const *argv[])
 
             memset(map_blocks, 0, (32 * 24));
 
-            setGamePlayers(g_players);
+            initPlayers(g_players);
 
             while (GAME.running)
             {
@@ -78,52 +78,17 @@ int main(int argc, char const *argv[])
                     case PLAY:
                         playInput(e, &GAME);
                         updateLocalPlayer(GAME.c_player);
+
+                        for (int p = 0; p < 4; p++) 
+                        {
+                            if (&g_players[p] != GAME.c_player)
+                                updateOtherPlayer(&g_players[p]);
+                        }
+                        
+                        checkMapCollision(GAME, &block, map_blocks);
+                        renderPlayers(GAME);
                     break;
                 }
-
-                for (int p = 0; p < 4; p++) 
-                {
-                    if (&g_players[p] != GAME.c_player)
-                        updateOtherPlayer(&g_players[p]);
-                }
-
-                for (int y = 0; y < 24; y++)
-                {
-                    for (int x = 0; x < 32; x++)
-                    {
-                        block.x = x * 20;
-                        block.y = y * 20;
-
-                        if (collision(x * 20, y * 20, g_players[PLAYER1].x, g_players[PLAYER1].y) 
-                        && g_players[PLAYER1].spawned) 
-                            map_blocks[y][x] = 1;
-/*
-                        if (player1.attacking)
-                        {
-                            // check ranged attack spot
-                            if (collision(x * 20, y * 20, player1.rx, player1.ry)) 
-                                map_blocks[y][x] = 1;
-                        }
-*/
-                        if (map_blocks[y][x]) 
-                        {
-                            switch (map_blocks[y][x])
-                            {
-                                case 1: SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0xff, 0xff); 
-                                break;
-                                case 2: SDL_SetRenderDrawColor(renderer, 0x00, 0xff, 0x00, 0xff); 
-                                break;
-                                case 3: SDL_SetRenderDrawColor(renderer, 0xff, 0x00, 0x00, 0xff); 
-                                break;
-                                case 4: SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0x00, 0xff); 
-                                break;
-                            }
-                            SDL_RenderFillRect(*GAME.renderer, &block);
-                        }
-                    }
-                }
-                
-                renderPlayers(GAME);
 
                 // put it all on screen
                 SDL_RenderPresent(renderer);

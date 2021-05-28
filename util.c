@@ -175,6 +175,53 @@ bool collision(int x, int y, int x2, int y2)
     return true;
 }
 
+void checkMapCollision(game G, SDL_Rect *block, unsigned char (*map_blocks)[32])
+{
+    int i, x, y;
+
+    for (y = 0; y < 24; y++)
+    {
+        for (x = 0; x < 32; x++)
+        {
+            block->x = x * 20;
+            block->y = y * 20;
+
+            for (i = 0; i < 4; i++)
+            {
+                if (G.players[i].spawned)
+                {
+                    if (collision(x * 20, y * 20, G.players[i].x, G.players[i].y) 
+                    && G.players[i].spawned) 
+                        map_blocks[y][x] = (i + 1);
+                }
+            }
+/*
+            if (player1.attacking)
+            {
+                // check ranged attack spot
+                if (collision(x * 20, y * 20, player1.rx, player1.ry)) 
+                    map_blocks[y][x] = 1;
+            }
+*/
+            if (map_blocks[y][x]) 
+            {
+                switch (map_blocks[y][x])
+                {
+                    case 1: SDL_SetRenderDrawColor(*G.renderer, 0x00, 0x00, 0xff, 0xff); 
+                    break;
+                    case 2: SDL_SetRenderDrawColor(*G.renderer, 0x00, 0xff, 0x00, 0xff); 
+                    break;
+                    case 3: SDL_SetRenderDrawColor(*G.renderer, 0xff, 0x00, 0x00, 0xff); 
+                    break;
+                    case 4: SDL_SetRenderDrawColor(*G.renderer, 0xff, 0xff, 0x00, 0xff); 
+                    break;
+                }
+                SDL_RenderFillRect(*G.renderer, block);
+            }
+        }
+    }
+}
+
 void menuInput(SDL_Event e, game *g, thrd_t *nw_thread)
 {
     while (SDL_PollEvent(&e) != 0)
@@ -284,7 +331,7 @@ void playInput(SDL_Event e, game *g)
     }
 }
 
-void setGamePlayers(player p[4])
+void initPlayers(player p[4])
 {
     for (int i = 0; i < 4; i++)
     {
@@ -377,67 +424,72 @@ void updateOtherPlayer(player *p)
     if (p->spawned)
     {
         // animation
-        if (p->attacking)
+        if (p->nextmove.attacking)
         {
             p->acounter = 0;
             p->aindex = 4;
 
-            if (p->atk_counter < 5) p->aindex = 4;
+            if (p->nextmove.atk_counter < 5) p->aindex = 4;
 
-            else if (p->atk_counter >= 5 && p->atk_counter < 10)
+            else if (p->nextmove.atk_counter >= 5 
+            && p->nextmove.atk_counter < 10)
                 p->aindex = 5;
             
-            else if (p->atk_counter >= 10) 
+            else if (p->nextmove.atk_counter >= 10) 
                 p->aindex = 6;
 
-            if (p->atk_counter + 1 == 15) p->aindex = 0;
+            if (p->nextmove.atk_counter + 1 == 15) p->aindex = 0;
         }
         else
         {
             p->acounter++;
 
-            if (p->nx != p->x && p->ny == p->y)
+            if (p->nextmove.x != p->x && p->nextmove.y == p->y)
             {
-                if (p->nx > p->x)
+                if (p->nextmove.x > p->x)
                 {
                     p->face = RIGHT;
                 }
-                else if (p->nx < p->x)
+                else if (p->nextmove.x < p->x)
                 {
                     p->face = LEFT;
                 }
 
-                if (((p->nx == p->x + 1) || (p->nx == p->x - 1)) 
+                if (((p->nextmove.x == p->x + 1) 
+                || (p->nextmove.x == p->x - 1)) 
                 && (p->acounter % 8 == 0))
                 {
                     p->aindex++;
                     p->aindex = (p->aindex % 2) + 2;
                 }
-                else if (((p->nx == p->x + 2) || (p->nx == p->x - 2)) 
+                else if (((p->nextmove.x == p->x + 2) 
+                || (p->nextmove.x == p->x - 2)) 
                 && (p->acounter % 6 == 0))
                 {
                     p->aindex++;
                     p->aindex = (p->aindex % 2) + 2;
                 }
             }
-            else if (p->ny != p->y && p->nx == p->x)
+            else if (p->nextmove.y != p->y && p->nextmove.x == p->x)
             {
-                if (p->ny > p->y)
+                if (p->nextmove.y > p->y)
                 {
                     p->face = DOWN;
                 }
-                else if (p->ny < p->y)
+                else if (p->nextmove.y < p->y)
                 {
                     p->face = UP;
                 }
 
-                if (((p->ny == p->y + 1) || (p->ny == p->y - 1)) 
+                if (((p->nextmove.y == p->y + 1) 
+                || (p->nextmove.y == p->y - 1)) 
                 && (p->acounter % 8 == 0))
                 {
                     p->aindex++;
                     p->aindex = (p->aindex % 2) + 2;
                 }
-                else if (((p->ny == p->y + 2) || (p->ny == p->y - 2)) 
+                else if (((p->nextmove.y == p->y + 2) 
+                || (p->nextmove.y == p->y - 2)) 
                 && (p->acounter % 6 == 0))
                 {
                     p->aindex++;
@@ -454,8 +506,11 @@ void updateOtherPlayer(player *p)
             }
         }
 
-        p->x = p->nx;
-        p->y = p->ny;
+        p->attacking = p->nextmove.attacking;
+        p->atk_counter = p->nextmove.atk_counter;
+
+        p->x = p->nextmove.x;
+        p->y = p->nextmove.y;
     }
 }
 
@@ -639,11 +694,10 @@ int setup_server(void *ptr)
 	
 	printf("Server listening..\n");
 
-    // just for testing !!!
+    // just for testing, it makes sense to be player1 as the host though ...
     G->c_player = &G->players[PLAYER1];
     G->c_player->spawned = true;
     G->c_player->nid = nw->sockfd;
-
     G->state = PLAY;
 
     host_loop(G);
@@ -807,10 +861,10 @@ void host_loop(game *G)
                         {
                             if (G->nw.pfds[p].fd == G->players[i].nid)
                             {
-                                G->players[i].nx = buffer[1];
-                                G->players[i].ny = buffer[2];
-                                G->players[i].attacking = buffer[3];
-                                G->players[i].atk_counter = buffer[4];
+                                G->players[i].nextmove.x = buffer[1];
+                                G->players[i].nextmove.y = buffer[2];
+                                G->players[i].nextmove.attacking = buffer[3];
+                                G->players[i].nextmove.atk_counter = buffer[4];
                             }
                         }
 
@@ -918,108 +972,30 @@ void client_loop(game *G)
             if (nbytes == 0) printf("socket %d hung up\n", G->nw.sockfd);
             else perror("recv");
             close(G->nw.sockfd);
+            for (int i = 0; i < 4; i++) setPlayerState(&G->players[i]);
             q = true;
         }
         else
         {
-            // absolutely horrible, only for testing !!! - begin
-            G->players[PLAYER1].nid = buffer[N_P1];
-            G->players[PLAYER1].nx = buffer[N_P1+1];
-            G->players[PLAYER1].ny = buffer[N_P1+2];
-            G->players[PLAYER1].attacking = buffer[N_P1+3];
-            G->players[PLAYER1].atk_counter = buffer[N_P1+4];
-            G->players[PLAYER1].spawned = true;
-
-            if (buffer[N_P2] == G->nw.connfd)
+            for (int i = 0; i < 4; i++)
             {
-                if (G->c_player == NULL) 
+                if (G->players[i].nid != 0) 
+                    c_player_update(G, i, buffer);
+                else
                 {
-                    G->c_player = &G->players[PLAYER2];
-                    G->c_player->nid = G->nw.connfd;
-                    G->c_player->spawned = true;
-                    G->state = PLAY;
-                }
-
-                if (buffer[N_P3] != 0)
-                {
-                    G->players[PLAYER3].nid = buffer[N_P3];
-                    G->players[PLAYER3].nx = buffer[N_P3+1];
-                    G->players[PLAYER3].ny = buffer[N_P3+2];
-                    G->players[PLAYER3].attacking = buffer[N_P3+3];
-                    G->players[PLAYER3].atk_counter = buffer[N_P3+4];
-                    G->players[PLAYER3].spawned = true;
-                }
-                if (buffer[N_P4] != 0)
-                {
-                    G->players[PLAYER4].nid = buffer[N_P4];
-                    G->players[PLAYER4].nx = buffer[N_P4+1];
-                    G->players[PLAYER4].ny = buffer[N_P4+2];
-                    G->players[PLAYER4].attacking = buffer[N_P4+3];
-                    G->players[PLAYER4].atk_counter = buffer[N_P4+4];
-                    G->players[PLAYER4].spawned = true;
+                    if (buffer[(i * 5)] != 0)
+                    {
+                        if (buffer[(i * 5)] == G->nw.connfd 
+                        && G->c_player == NULL)
+                        {
+                            G->c_player = &G->players[i];
+                            G->state = PLAY;
+                        }
+                        G->players[i].nid = buffer[(i * 5)];
+                        G->players[i].spawned = true;
+                    }
                 }
             }
-            else if (buffer[N_P3] == G->nw.connfd)
-            {
-                if (G->c_player == NULL) 
-                {
-                    G->c_player = &G->players[PLAYER3]; 
-                    G->c_player->nid = G->nw.connfd;
-                    G->c_player->spawned = true;
-                    G->state = PLAY;
-                }
-
-                if (buffer[N_P2] != 0)
-                {
-                    G->players[PLAYER2].nid = buffer[N_P2];
-                    G->players[PLAYER2].nx = buffer[N_P2+1];
-                    G->players[PLAYER2].ny = buffer[N_P2+2];
-                    G->players[PLAYER2].attacking = buffer[N_P2+3];
-                    G->players[PLAYER2].atk_counter = buffer[N_P2+4];
-                    G->players[PLAYER2].spawned = true;
-                }
-                if (buffer[N_P4] != 0)
-                {
-                    G->players[PLAYER4].nid = buffer[N_P4];
-                    G->players[PLAYER4].nx = buffer[N_P4+1];
-                    G->players[PLAYER4].ny = buffer[N_P4+2];
-                    G->players[PLAYER4].attacking = buffer[N_P4+3];
-                    G->players[PLAYER4].atk_counter = buffer[N_P4+4];
-                    G->players[PLAYER4].spawned = true;
-                }
-            }
-            else if (buffer[N_P4] == G->nw.connfd)
-            {
-                if (G->c_player == NULL) 
-                {
-                    G->c_player = &G->players[PLAYER4]; 
-                    G->c_player->nid = G->nw.connfd;
-                    G->c_player->spawned = true;
-                    G->state = PLAY;
-                }
-
-                if (buffer[N_P2] != 0)
-                {
-                    G->players[PLAYER2].nid = buffer[N_P2];
-                    G->players[PLAYER2].nx = buffer[N_P2+1];
-                    G->players[PLAYER2].ny = buffer[N_P2+2];
-                    G->players[PLAYER2].attacking = buffer[N_P2+3];
-                    G->players[PLAYER2].atk_counter = buffer[N_P2+4];
-                    G->players[PLAYER2].spawned = true;
-                }
-                if (buffer[N_P3] != 0)
-                {
-                    G->players[PLAYER3].nid = buffer[N_P3];
-                    G->players[PLAYER3].nx = buffer[N_P3+1];
-                    G->players[PLAYER3].ny = buffer[N_P3+2];
-                    G->players[PLAYER3].attacking = buffer[N_P3+3];
-                    G->players[PLAYER3].atk_counter = buffer[N_P3+4];
-                    G->players[PLAYER3].spawned = true;
-                }
-            }
-
-            //  - end
-
             bzero(buffer, sizeof(buffer));
         }
 
@@ -1029,54 +1005,10 @@ void client_loop(game *G)
     }
 }
 
-int recv_data(void *ptr)
+void c_player_update(game *G, int i, short *buffer)
 {
-    game *G = ptr;
-    int nbytes;
-    short buffer[2];
-
-    /*
-    while (G->running)
-    {
-        nbytes = recvfrom(G->nw.sockfd, buffer, sizeof(buffer), 0, 
-            (struct sockaddr*)&G->nw.servaddr, 
-            &G->nw.addrlen);
-
-        if (nbytes > 0)
-        {
-
-        }
-
-        bzero(buffer, sizeof(buffer));
-    }
-    */
-
-    thrd_exit(0);
-    return 0;
-}
-
-int send_data(void *ptr)
-{
-    game *G = ptr;
-    int nbytes;
-    short buffer[2];
-
-    /*
-    while (G->running)
-    {
-        nbytes = sendto(G->nw.sockfd, buffer, sizeof(buffer), 0, 
-            (struct sockaddr*)&G->nw.servaddr, 
-            &G->nw.addrlen);
-
-        if (nbytes > 0)
-        {
-            
-        }
-
-        bzero(buffer, sizeof(buffer));
-    }
-    */
-
-    thrd_exit(0);
-    return 0;
+    G->players[i].nextmove.x = buffer[(i * 5) + 1];
+    G->players[i].nextmove.y = buffer[(i * 5) + 2];
+    G->players[i].nextmove.attacking = buffer[(i * 5) + 3];
+    G->players[i].nextmove.atk_counter = buffer[(i * 5) + 4];
 }
