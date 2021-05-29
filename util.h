@@ -113,7 +113,7 @@ typedef struct game
     bool            running, host, client, kill;
 } game;
 
-void c_initClips(SDL_Rect *);
+void char_initClips(SDL_Rect *);
 void e_initClips(SDL_Rect *);
 
 bool collision(int x, int y, int x2, int y2);
@@ -124,6 +124,9 @@ void playInput(SDL_Event, game *);
 
 void initPlayers(player [4]);
 void setPlayerState(player *);
+
+void selectPlayerSlot(player *players, int cfd);
+void removePlayerSlot(player *players, int cfd);
 
 void updateLocalPlayer(player *);
 void updateOtherPlayer(player *);
@@ -145,3 +148,4 @@ void host_loop(game *G);
 void client_loop(game *G);
 
 void c_player_update(game *G, int i, short *buffer);
+void h_player_update(short *buffer, player *players, int sfd);

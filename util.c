@@ -125,7 +125,7 @@ void freeTexture(Texture *text)
 
 // game stuff
 //
-void c_initClips(SDL_Rect *clips)
+void char_initClips(SDL_Rect *clips)
 {
     int n = 0;
     for (int i = 0; i < 21; i++)
@@ -336,6 +336,19 @@ void initPlayers(player p[4])
     for (int i = 0; i < 4; i++)
     {
         setPlayerState(&p[i]);
+        switch (i)
+        {
+            case 1:
+                p[i].x = (W_WIDTH) - 1;
+            break;
+            case 2:
+                p[i].y = (W_HEIGHT) - 1;
+            break;
+            case 3:
+                p[i].x = (W_WIDTH) - 1;
+                p[i].y = (W_HEIGHT) - 1;
+            break;
+        }
     }
 }
 
@@ -364,6 +377,32 @@ void setPlayerState(player *p)
 
     memset(p, 0, sizeof(*p));
     memset(p->i_queue, 255, sizeof(p->i_queue));
+}
+
+void selectPlayerSlot(player *players, int cfd)
+{
+    for (int i = 0; i < 4; i++)
+    {
+        if (players[i].nid == 0)
+        {
+            players[i].nid = cfd;
+            players[i].spawned = true;
+            break;
+        }
+    }
+}
+
+void removePlayerSlot(player *players, int cfd)
+{
+    for (int i = 0; i < 4; i++)
+    {
+        if (players[i].nid == cfd)
+        {
+            players[i].nid = 0;
+            players[i].spawned = false;
+            break;
+        }
+    }
 }
 
 void updateLocalPlayer(player *p)
@@ -825,8 +864,7 @@ void host_loop(game *G)
                         G->nw.pfds[fd_counter].fd = G->nw.connfd;
                         G->nw.pfds[fd_counter].events = POLLIN;
 
-                        G->players[fd_counter].nid = G->nw.connfd;
-                        G->players[fd_counter].spawned = true;
+                        selectPlayerSlot(G->players, G->nw.connfd);
 
                         buffer[0] = G->nw.connfd;
 
@@ -847,17 +885,13 @@ void host_loop(game *G)
                         else perror("recv");
 
                         close(G->nw.pfds[p].fd);
-
+                        removePlayerSlot(G->players, G->nw.pfds[p].fd);
                         G->nw.pfds[p] = G->nw.pfds[fd_counter - 1];
-
-                        G->players[p].nid = 0;
-                        G->players[p].spawned = false;
-
                         fd_counter--;
                     }
                     else
                     {
-                        for (int i = 1; i < fd_counter; i++)
+                        for (int i = 1; i < 4; i++)
                         {
                             if (G->nw.pfds[p].fd == G->players[i].nid)
                             {
@@ -867,43 +901,15 @@ void host_loop(game *G)
                                 G->players[i].nextmove.atk_counter = buffer[4];
                             }
                         }
-
                         bzero(buffer, sizeof(buffer));
                     }
                 }
             }
         }
 
-        switch (fd_counter)
-        {
-            case 4:
-                buffer[N_P4] = G->players[PLAYER4].nid;
-                buffer[N_P4+1] = G->players[PLAYER4].x;
-                buffer[N_P4+2] = G->players[PLAYER4].y;
-                buffer[N_P4+3] = G->players[PLAYER4].attacking;
-                buffer[N_P4+4] = G->players[PLAYER4].atk_counter;
-            case 3:
-                buffer[N_P3] = G->players[PLAYER3].nid;
-                buffer[N_P3+1] = G->players[PLAYER3].x;
-                buffer[N_P3+2] = G->players[PLAYER3].y;
-                buffer[N_P3+3] = G->players[PLAYER3].attacking;
-                buffer[N_P3+4] = G->players[PLAYER3].atk_counter;
-            case 2:
-                buffer[N_P2] = G->players[PLAYER2].nid;
-                buffer[N_P2+1] = G->players[PLAYER2].x;
-                buffer[N_P2+2] = G->players[PLAYER2].y;
-                buffer[N_P2+3] = G->players[PLAYER2].attacking;
-                buffer[N_P2+4] = G->players[PLAYER2].atk_counter;
+        h_player_update(buffer, G->players, G->nw.sockfd);
 
-                buffer[N_P1] = G->nw.sockfd;
-                buffer[N_P1+1] = G->players[PLAYER1].x;
-                buffer[N_P1+2] = G->players[PLAYER1].y;
-                buffer[N_P1+3] = G->players[PLAYER1].attacking;
-                buffer[N_P1+4] = G->players[PLAYER1].atk_counter;
-            break;
-        }
-
-        for (int j = 1; j < fd_counter; j++)
+        for (int j = 1; j < 4; j++)
         {
             if (G->players[j].spawned)
             {
@@ -1007,8 +1013,54 @@ void client_loop(game *G)
 
 void c_player_update(game *G, int i, short *buffer)
 {
+    if (buffer[(i * 5)] == 0)
+    {
+        G->players[i].nid = 0;
+        G->players[i].spawned = false;
+        return;
+    }
+
     G->players[i].nextmove.x = buffer[(i * 5) + 1];
     G->players[i].nextmove.y = buffer[(i * 5) + 2];
     G->players[i].nextmove.attacking = buffer[(i * 5) + 3];
     G->players[i].nextmove.atk_counter = buffer[(i * 5) + 4];
+}
+
+void h_player_update(short *buffer, player *players, int sfd)
+{
+    buffer[N_P1] = sfd;
+    buffer[N_P1+1] = players[PLAYER1].x;
+    buffer[N_P1+2] = players[PLAYER1].y;
+    buffer[N_P1+3] = players[PLAYER1].attacking;
+    buffer[N_P1+4] = players[PLAYER1].atk_counter;
+
+    buffer[N_P2] = players[PLAYER2].nid;
+
+    if (players[PLAYER2].nid != 0)
+    {
+        buffer[N_P2+1] = players[PLAYER2].x;
+        buffer[N_P2+2] = players[PLAYER2].y;
+        buffer[N_P2+3] = players[PLAYER2].attacking;
+        buffer[N_P2+4] = players[PLAYER2].atk_counter;
+    }
+
+    buffer[N_P3] = players[PLAYER3].nid;
+
+    if (players[PLAYER3].nid != 0)
+    {
+        buffer[N_P3+1] = players[PLAYER3].x;
+        buffer[N_P3+2] = players[PLAYER3].y;
+        buffer[N_P3+3] = players[PLAYER3].attacking;
+        buffer[N_P3+4] = players[PLAYER3].atk_counter;
+    }
+
+    buffer[N_P4] = players[PLAYER4].nid;
+
+    if (players[PLAYER4].nid != 0)
+    {
+        buffer[N_P4+1] = players[PLAYER4].x;
+        buffer[N_P4+2] = players[PLAYER4].y;
+        buffer[N_P4+3] = players[PLAYER4].attacking;
+        buffer[N_P4+4] = players[PLAYER4].atk_counter;
+    }
 }

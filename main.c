@@ -51,7 +51,7 @@ int main(int argc, char const *argv[])
         if (initTextureMap(&renderer, &c_texture, "assets/doomed_looters/warrior-Sheet.png"))
         //& initTextureMap(&renderer, &e_texture, "assets/Rogue-Like-8x8/Enemies.png"))
         {
-            c_initClips(c_clips);
+            char_initClips(c_clips);
             //e_initClips(e_clips);
 
             memset(map_blocks, 0, (32 * 24));
