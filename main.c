@@ -9,7 +9,7 @@ int main(int argc, char const *argv[])
 
     SDL_Event e;
     SDL_Rect c_clips[21]; // player/character clips
-    SDL_Rect e_clips[5]; // what do here ... - enemy clips
+    //SDL_Rect e_clips[5]; // what do here ... - enemy clips
 
     unsigned char map_blocks[24][32];
 
@@ -33,24 +33,22 @@ int main(int argc, char const *argv[])
         .client = false,
         .kill = false,
         .c_clips = c_clips,
-        .state = MENU
+        .state = MENU,
+        .c_player = NULL,
+        .nw.pfds = malloc(sizeof(*GAME.nw.pfds) * 4)
     };
-
-    GAME.c_player = &g_players[PLAYER1];
-    GAME.nw.pfds = malloc(sizeof *GAME.nw.pfds * 4);
 
     int timer, delta;
     thrd_t nw_thread;
-    short buffer[4];
-
-    if (argc > 1) GAME.ip = argv[1];
-    else GAME.ip = "0.0.0.0";
 
     if (initSdl(&window, &renderer))
     {
         if (initTextureMap(&renderer, &c_texture, "assets/doomed_looters/warrior-Sheet.png"))
         //& initTextureMap(&renderer, &e_texture, "assets/Rogue-Like-8x8/Enemies.png"))
         {
+            if (argc > 1) GAME.ip = argv[1];
+            else GAME.ip = "0.0.0.0";
+
             char_initClips(c_clips);
             //e_initClips(e_clips);
 
@@ -85,6 +83,7 @@ int main(int argc, char const *argv[])
                                 updateOtherPlayer(&g_players[p]);
                         }
                         
+                        checkPlayerAtkCol(g_players);   // test attacks
                         checkMapCollision(GAME, &block, map_blocks);
                         renderPlayers(GAME);
                     break;

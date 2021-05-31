@@ -153,16 +153,16 @@ void e_initClips(SDL_Rect *clips)
     }
 }
 
-bool collision(int x, int y, int x2, int y2)
+bool collision(SDL_Rect a, SDL_Rect b)
 {
-    int leftA = x, 
-        leftB = x2, 
-        rightA = x + 20, 
-        rightB = x2 + 1, 
-        topA = y, 
-        topB = y2, 
-        bottomA = y + 20, 
-        bottomB = y2 + 1;
+    int leftA = a.x, 
+        leftB = b.x, 
+        rightA = a.x + a.w, 
+        rightB = b.x + b.w, 
+        topA = a.y, 
+        topB = b.y, 
+        bottomA = a.y + a.h, 
+        bottomB = b.y + b.h;
 
     if(bottomA <= topB) return false;
 
@@ -190,19 +190,13 @@ void checkMapCollision(game G, SDL_Rect *block, unsigned char (*map_blocks)[32])
             {
                 if (G.players[i].spawned)
                 {
-                    if (collision(x * 20, y * 20, G.players[i].x, G.players[i].y) 
-                    && G.players[i].spawned) 
+                    SDL_Rect plr = {.x = G.players[i].x, .y = G.players[i].y, .w = 1, .h = 1};
+
+                    if (collision(*block, plr) && G.players[i].spawned) 
                         map_blocks[y][x] = (i + 1);
                 }
             }
-/*
-            if (player1.attacking)
-            {
-                // check ranged attack spot
-                if (collision(x * 20, y * 20, player1.rx, player1.ry)) 
-                    map_blocks[y][x] = 1;
-            }
-*/
+
             if (map_blocks[y][x]) 
             {
                 switch (map_blocks[y][x])
@@ -217,6 +211,29 @@ void checkMapCollision(game G, SDL_Rect *block, unsigned char (*map_blocks)[32])
                     break;
                 }
                 SDL_RenderFillRect(*G.renderer, block);
+            }
+        }
+    }
+}
+
+void checkPlayerAtkCol(player *players)
+{
+    SDL_Rect plr = {.x = 0, .y = 0, .w = 1, .h = 1};
+    for (int i = 0; i < 4; i++)
+    {
+        if (players[i].attacking)
+        {
+            for (int j = 0; j < 4; j++)
+            {
+                if ((&players[i] != &players[j]) && players[j].spawned)
+                {
+                    plr.x = players[j].x; 
+                    plr.y = players[j].y;
+                    if (collision(players[i].a_hitBox, plr))
+                    {
+                        printf("a: %d shove b: %d\n", players[i].nid, players[j].nid);
+                    }
+                }
             }
         }
     }
@@ -418,27 +435,36 @@ void updateLocalPlayer(player *p)
 
     if (!p->attacking)
     {
+        
         switch (p->dir)
         {
             case UP: 
                 p->yvel = p->sprint ? -2 : -1;
-                p->a_hitBox.x = p->x + 7; 
-                p->a_hitBox.y = p->y;
+                p->a_hitBox.x = p->x - 10; 
+                p->a_hitBox.y = p->y - 20;
+                p->a_hitBox.w = 20;
+                p->a_hitBox.h = 4;
             break;
             case LEFT: 
                 p->xvel = p->sprint ? -2 : -1;
-                p->a_hitBox.x = p->x; 
-                p->a_hitBox.y = p->y + 15;
+                p->a_hitBox.x = p->x - 15; 
+                p->a_hitBox.y = p->y - 20;
+                p->a_hitBox.w = 4;
+                p->a_hitBox.h = 20;
             break;
             case DOWN: 
                 p->yvel = p->sprint ? 2 : 1; 
-                p->a_hitBox.x = p->x + 7; 
-                p->a_hitBox.y = p->y + p->h;
+                p->a_hitBox.x = p->x - 10; 
+                p->a_hitBox.y = p->y;
+                p->a_hitBox.w = 20;
+                p->a_hitBox.h = 4;
             break;
             case RIGHT: 
                 p->xvel = p->sprint ? 2 : 1; 
-                p->a_hitBox.x = p->x + p->w; 
-                p->a_hitBox.y = p->y + 15;
+                p->a_hitBox.x = p->x + 12; 
+                p->a_hitBox.y = p->y - 20;
+                p->a_hitBox.w = 4;
+                p->a_hitBox.h = 20;
             break;
         }
     }
@@ -537,7 +563,7 @@ void updateOtherPlayer(player *p)
             }
             else
             {
-                if (p->acounter % 16 == 0)
+                if (p->acounter % 32 == 0)
                 {
                     p->aindex++;
                     p->aindex %= 2;
@@ -632,7 +658,7 @@ void animatePlayer(player *p)
         }
         else 
         {
-            if (p->acounter % 16 == 0)
+            if (p->acounter % 32 == 0)
             {
                 p->aindex++;
                 p->aindex %= 2;
@@ -644,7 +670,6 @@ void animatePlayer(player *p)
 void renderPlayers(game G)
 {
     player p;
-
     for (int i = 0; i < 4; i++)
     {
         if (G.players[i].spawned)
@@ -657,8 +682,14 @@ void renderPlayers(game G)
             else c_index = (p.face * 7) + p.aindex;
 
             renderTexture(*G.renderer, G.c_texture, 
-                p.x - 16, p.y - 28, 
+                p.x - 16, p.y - 30, 
                 &G.c_clips[c_index], flip);
+        }
+
+        if (G.players[i].attacking) 
+        {
+            SDL_SetRenderDrawColor(*G.renderer, 0xff, 0x00, 0x00, 0xff);
+            SDL_RenderFillRect(*G.renderer, &G.players[i].a_hitBox);
         }
     }
 }
@@ -741,6 +772,7 @@ int setup_server(void *ptr)
 
     host_loop(G);
 
+    G->state = MENU;
     G->host = false;
     G->kill = false;
 
@@ -813,10 +845,12 @@ int connect_to_server(void *ptr)
             G->nw.connfd = buffer[0];
             client_loop(G);
         }
-
+        G->state = MENU;
         G->client = false;
         G->kill = false;
     }
+
+    close(G->nw.sockfd);
 
     printf("client thread terminated\n");
     thrd_exit(0);
@@ -978,7 +1012,10 @@ void client_loop(game *G)
             if (nbytes == 0) printf("socket %d hung up\n", G->nw.sockfd);
             else perror("recv");
             close(G->nw.sockfd);
-            for (int i = 0; i < 4; i++) setPlayerState(&G->players[i]);
+
+            initPlayers(G->players);
+            G->c_player = NULL;
+            G->state = MENU;
             q = true;
         }
         else

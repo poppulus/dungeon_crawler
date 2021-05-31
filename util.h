@@ -116,8 +116,9 @@ typedef struct game
 void char_initClips(SDL_Rect *);
 void e_initClips(SDL_Rect *);
 
-bool collision(int x, int y, int x2, int y2);
+bool collision(SDL_Rect a, SDL_Rect b);
 void checkMapCollision(game, SDL_Rect *block, unsigned char (*map_blocks)[]);
+void checkPlayerAtkCol(player *);
 
 void menuInput(SDL_Event, game *, thrd_t *nw_thread);
 void playInput(SDL_Event, game *);
