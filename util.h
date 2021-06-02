@@ -94,9 +94,10 @@ typedef struct player
 
     unsigned char   acounter, aindex, 
                     atk_counter, 
-                    i_queue[Q_SIZE];
+                    i_queue[Q_SIZE],
+                    hurt_counter;
 
-    bool moving:1, attacking:1, a_hold:1, sprint:1, spawned:1;
+    bool moving:1, attacking:1, a_hold:1, sprint:1, spawned:1, hurt:1;
 } player;
 
 typedef struct game
@@ -112,6 +113,8 @@ typedef struct game
     unsigned char   state;
     bool            running, host, client, kill;
 } game;
+
+int sortfunc(const void *a, const void *b);
 
 void char_initClips(SDL_Rect *);
 void e_initClips(SDL_Rect *);
@@ -138,6 +141,10 @@ void animatePlayer(player *);
 void playerWalking();
 void playerAttacking();
 void renderPlayers(game);
+
+void renderPlayer(game, player *);
+
+void setRenderOrder(game);
 
 void enqueue(unsigned char *q, unsigned char val);
 void dequeue(unsigned char *q, unsigned char val);

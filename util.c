@@ -123,6 +123,11 @@ void freeTexture(Texture *text)
     }
 }
 
+int sortfunc(const void *a, const void *b)
+{
+    return *(int*)a - *(int*)b;
+}
+
 // game stuff
 //
 void char_initClips(SDL_Rect *clips)
@@ -225,13 +230,16 @@ void checkPlayerAtkCol(player *players)
         {
             for (int j = 0; j < 4; j++)
             {
-                if ((&players[i] != &players[j]) && players[j].spawned)
+                if ((&players[i] != &players[j]) 
+                && players[j].spawned && !players[j].hurt)
                 {
                     plr.x = players[j].x; 
-                    plr.y = players[j].y;
+                    plr.y = players[j].y - 15;
                     if (collision(players[i].a_hitBox, plr))
                     {
-                        printf("a: %d shove b: %d\n", players[i].nid, players[j].nid);
+                        players[j].hurt = true;
+                        //printf("a: %d shove b: %d\n", players[i].nid, players[j].nid);
+                        continue;
                     }
                 }
             }
@@ -433,37 +441,47 @@ void updateLocalPlayer(player *p)
     && (p->i_queue[0] != ATTACK) && !p->attacking) 
         p->face = p->i_queue[0];
 
+    if (p->hurt)
+    {
+        p->hurt_counter++;
+
+        if (p->hurt_counter >= 60)
+        {
+            p->hurt_counter = 0;
+            p->hurt = false;
+        }
+    }
+
     if (!p->attacking)
     {
-        
         switch (p->dir)
         {
             case UP: 
                 p->yvel = p->sprint ? -2 : -1;
                 p->a_hitBox.x = p->x - 10; 
-                p->a_hitBox.y = p->y - 20;
+                p->a_hitBox.y = p->y - 40;
                 p->a_hitBox.w = 20;
-                p->a_hitBox.h = 4;
+                p->a_hitBox.h = 20;
             break;
             case LEFT: 
                 p->xvel = p->sprint ? -2 : -1;
-                p->a_hitBox.x = p->x - 15; 
-                p->a_hitBox.y = p->y - 20;
-                p->a_hitBox.w = 4;
+                p->a_hitBox.x = p->x - 20; 
+                p->a_hitBox.y = p->y - 30;
+                p->a_hitBox.w = 20;
                 p->a_hitBox.h = 20;
             break;
             case DOWN: 
                 p->yvel = p->sprint ? 2 : 1; 
                 p->a_hitBox.x = p->x - 10; 
-                p->a_hitBox.y = p->y;
+                p->a_hitBox.y = p->y - 10;
                 p->a_hitBox.w = 20;
-                p->a_hitBox.h = 4;
+                p->a_hitBox.h = 20;
             break;
             case RIGHT: 
                 p->xvel = p->sprint ? 2 : 1; 
-                p->a_hitBox.x = p->x + 12; 
-                p->a_hitBox.y = p->y - 20;
-                p->a_hitBox.w = 4;
+                p->a_hitBox.x = p->x; 
+                p->a_hitBox.y = p->y - 30;
+                p->a_hitBox.w = 20;
                 p->a_hitBox.h = 20;
             break;
         }
@@ -488,11 +506,49 @@ void updateOtherPlayer(player *p)
 {
     if (p->spawned)
     {
+        if (p->hurt)
+        {
+            p->hurt_counter++;
+
+            if (p->hurt_counter >= 60)
+            {
+                p->hurt_counter = 0;
+                p->hurt = false;
+            }
+        }
         // animation
         if (p->nextmove.attacking)
         {
             p->acounter = 0;
             p->aindex = 4;
+
+            switch (p->face)
+            {
+                case UP:
+                    p->a_hitBox.x = p->x - 10; 
+                    p->a_hitBox.y = p->y - 40;
+                    p->a_hitBox.w = 20;
+                    p->a_hitBox.h = 20;
+                break;
+                case DOWN:
+                    p->a_hitBox.x = p->x - 10; 
+                    p->a_hitBox.y = p->y - 10;
+                    p->a_hitBox.w = 20;
+                    p->a_hitBox.h = 20;
+                break;
+                case LEFT:
+                    p->a_hitBox.x = p->x - 20; 
+                    p->a_hitBox.y = p->y - 30;
+                    p->a_hitBox.w = 20;
+                    p->a_hitBox.h = 20;
+                break;
+                case RIGHT:
+                    p->a_hitBox.x = p->x; 
+                    p->a_hitBox.y = p->y - 30;
+                    p->a_hitBox.w = 20;
+                    p->a_hitBox.h = 20;
+                break;
+            }
 
             if (p->nextmove.atk_counter < 5) p->aindex = 4;
 
@@ -570,6 +626,7 @@ void updateOtherPlayer(player *p)
                 }
             }
         }
+        //
 
         p->attacking = p->nextmove.attacking;
         p->atk_counter = p->nextmove.atk_counter;
@@ -639,7 +696,7 @@ void animatePlayer(player *p)
             p->ry = p->y;
         }
     }
-    else 
+    else
     {
         p->acounter++;
 
@@ -669,27 +726,93 @@ void animatePlayer(player *p)
 
 void renderPlayers(game G)
 {
-    player p;
+    player *p;
+
     for (int i = 0; i < 4; i++)
     {
         if (G.players[i].spawned)
         {
-            p = G.players[i];
-            bool flip = (p.face == 3 ? true : false);
+            p = &G.players[i];
+            bool flip = (p->face == 3 ? true : false);
             int c_index;
         
-            if (p.face == 3) c_index = (2 * 7) + p.aindex;
-            else c_index = (p.face * 7) + p.aindex;
+            if (p->face == 3) c_index = (2 * 7) + p->aindex;
+            else c_index = (p->face * 7) + p->aindex;
 
-            renderTexture(*G.renderer, G.c_texture, 
-                p.x - 16, p.y - 30, 
-                &G.c_clips[c_index], flip);
+            if (p->hurt && ((p->hurt_counter % 4) == 0))
+            {
+                renderTexture(*G.renderer, G.c_texture, 
+                    p->x - 16, p->y - 30, 
+                    &G.c_clips[c_index], flip);
+            }
+            else if (!p->hurt)
+            {
+                renderTexture(*G.renderer, G.c_texture, 
+                    p->x - 16, p->y - 30, 
+                    &G.c_clips[c_index], flip);
+            }
+            /*
+            if (G.c_player->attacking) 
+            {
+                SDL_SetRenderDrawColor(*G.renderer, 0xff, 0x00, 0x00, 0xff);
+                SDL_RenderFillRect(*G.renderer, &G.players[i].a_hitBox);
+            }
+            */
         }
+    }
+}
 
-        if (G.players[i].attacking) 
+void renderPlayer(game G, player *p)
+{
+    bool flip = (p->face == 3 ? true : false);
+    int c_index;
+
+    if (p->face == 3) c_index = (2 * 7) + p->aindex;
+    else c_index = (p->face * 7) + p->aindex;
+
+    if (p->hurt && ((p->hurt_counter % 4) == 0))
+    {
+        renderTexture(*G.renderer, G.c_texture, 
+            p->x - 16, p->y - 30, 
+            &G.c_clips[c_index], flip);
+    }
+    else if (!p->hurt)
+    {
+        renderTexture(*G.renderer, G.c_texture, 
+            p->x - 16, p->y - 30, 
+            &G.c_clips[c_index], flip);
+    }
+}
+
+void setRenderOrder(game G)    // kind of slow?
+{
+    int order[4];
+
+    player *swap;
+    bool done = false;
+
+    for (int i = 0; i < 4; i++)
+    {
+        order[i] = -1;
+        if (G.players[i].spawned) 
         {
-            SDL_SetRenderDrawColor(*G.renderer, 0xff, 0x00, 0x00, 0xff);
-            SDL_RenderFillRect(*G.renderer, &G.players[i].a_hitBox);
+            order[i] = G.players[i].y;
+        }
+    }
+
+    qsort(order, 4, sizeof(int), sortfunc);
+
+    for (int j = 0; j < 4; j++)
+    {
+        if (order[j] != -1)
+        {
+            for (int m = 0; m < 4; m++)
+            {
+                if (G.players[m].y == order[j])
+                {
+                    renderPlayer(G, &G.players[m]);
+                }
+            }
         }
     }
 }

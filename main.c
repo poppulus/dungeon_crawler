@@ -85,7 +85,8 @@ int main(int argc, char const *argv[])
                         
                         checkPlayerAtkCol(g_players);   // test attacks
                         checkMapCollision(GAME, &block, map_blocks);
-                        renderPlayers(GAME);
+                        //renderPlayers(GAME);
+                        setRenderOrder(GAME);   //test render order
                     break;
                 }
 
