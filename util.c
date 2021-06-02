@@ -238,7 +238,21 @@ void checkPlayerAtkCol(player *players)
                     if (collision(players[i].a_hitBox, plr))
                     {
                         players[j].hurt = true;
-                        //printf("a: %d shove b: %d\n", players[i].nid, players[j].nid);
+                        switch (players[i].face)
+                        {
+                            case UP:
+                                players[j].p_dir = PUSH_UP;
+                            break;
+                            case DOWN:
+                                players[j].p_dir = PUSH_DOWN;
+                            break;
+                            case LEFT:
+                                players[j].p_dir = PUSH_LEFT;
+                            break;
+                            case RIGHT:
+                                players[j].p_dir = PUSH_RIGHT;
+                            break;
+                        }
                         continue;
                     }
                 }
@@ -298,6 +312,7 @@ void playInput(SDL_Event e, game *g)
                     case SDLK_ESCAPE: g->running = false; break;
                     case SDLK_SPACE:
                         if (!e.key.repeat 
+                        && !g->c_player->hurt
                         && !g->c_player->attacking 
                         && !g->c_player->a_hold) 
                         {
@@ -445,8 +460,29 @@ void updateLocalPlayer(player *p)
     {
         p->hurt_counter++;
 
+        if (p->push_counter < 30)
+        {
+            p->push_counter++;
+            switch (p->p_dir)
+            {
+                case PUSH_UP:
+                    p->yvel = -2;
+                break;
+                case PUSH_DOWN:
+                    p->yvel = 2;
+                break;
+                case PUSH_LEFT:
+                    p->xvel = -2;
+                break;
+                case PUSH_RIGHT:
+                    p->xvel = 2;
+                break;
+            }
+        }
+
         if (p->hurt_counter >= 60)
         {
+            p->push_counter = 0;
             p->hurt_counter = 0;
             p->hurt = false;
         }
@@ -510,8 +546,29 @@ void updateOtherPlayer(player *p)
         {
             p->hurt_counter++;
 
+            if (p->push_counter < 30)
+            {
+                p->push_counter++;
+                switch (p->p_dir)
+                {
+                    case PUSH_UP:
+                        p->yvel = -2;
+                    break;
+                    case PUSH_DOWN:
+                        p->yvel = 2;
+                    break;
+                    case PUSH_LEFT:
+                        p->xvel = -2;
+                    break;
+                    case PUSH_RIGHT:
+                        p->xvel = 2;
+                    break;
+                }
+            }
+
             if (p->hurt_counter >= 60)
             {
+                p->push_counter = 0;
                 p->hurt_counter = 0;
                 p->hurt = false;
             }
@@ -720,44 +777,6 @@ void animatePlayer(player *p)
                 p->aindex++;
                 p->aindex %= 2;
             }
-        }
-    }
-}
-
-void renderPlayers(game G)
-{
-    player *p;
-
-    for (int i = 0; i < 4; i++)
-    {
-        if (G.players[i].spawned)
-        {
-            p = &G.players[i];
-            bool flip = (p->face == 3 ? true : false);
-            int c_index;
-        
-            if (p->face == 3) c_index = (2 * 7) + p->aindex;
-            else c_index = (p->face * 7) + p->aindex;
-
-            if (p->hurt && ((p->hurt_counter % 4) == 0))
-            {
-                renderTexture(*G.renderer, G.c_texture, 
-                    p->x - 16, p->y - 30, 
-                    &G.c_clips[c_index], flip);
-            }
-            else if (!p->hurt)
-            {
-                renderTexture(*G.renderer, G.c_texture, 
-                    p->x - 16, p->y - 30, 
-                    &G.c_clips[c_index], flip);
-            }
-            /*
-            if (G.c_player->attacking) 
-            {
-                SDL_SetRenderDrawColor(*G.renderer, 0xff, 0x00, 0x00, 0xff);
-                SDL_RenderFillRect(*G.renderer, &G.players[i].a_hitBox);
-            }
-            */
         }
     }
 }

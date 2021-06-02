@@ -50,6 +50,15 @@ enum N_PINDEX
     N_P4 = 15
 };
 
+enum P_PUSH_D
+{
+    PUSH_NONE,
+    PUSH_UP,
+    PUSH_LEFT,
+    PUSH_DOWN,
+    PUSH_RIGHT
+};
+
 enum G_STATE
 {
     MENU,
@@ -83,19 +92,17 @@ typedef struct player
 
     int w, h, 
         x, y,
-        face, dir,
+        face, dir, p_dir,
         xvel, yvel,
         rx, ry,
-        nid;
+        nid, color;
 
-    int color;
-
-    unsigned char input[Q_SIZE];
-
-    unsigned char   acounter, aindex, 
+    unsigned char   input[Q_SIZE], 
+                    acounter, aindex, 
                     atk_counter, 
                     i_queue[Q_SIZE],
-                    hurt_counter;
+                    hurt_counter,
+                    push_counter;
 
     bool moving:1, attacking:1, a_hold:1, sprint:1, spawned:1, hurt:1;
 } player;
@@ -140,8 +147,6 @@ void setMapTColor(SDL_Renderer *r, player p);
 void animatePlayer(player *);
 void playerWalking();
 void playerAttacking();
-void renderPlayers(game);
-
 void renderPlayer(game, player *);
 
 void setRenderOrder(game);

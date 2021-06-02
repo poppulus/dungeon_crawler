@@ -83,10 +83,16 @@ int main(int argc, char const *argv[])
                                 updateOtherPlayer(&g_players[p]);
                         }
                         
-                        checkPlayerAtkCol(g_players);   // test attacks
+                        checkPlayerAtkCol(g_players);
                         checkMapCollision(GAME, &block, map_blocks);
-                        //renderPlayers(GAME);
-                        setRenderOrder(GAME);   //test render order
+
+                        if (GAME.c_player->attacking) 
+                        {
+                            SDL_SetRenderDrawColor(renderer, 0xff, 0x00, 0x00, 0xff);
+                            SDL_RenderFillRect(renderer, &GAME.c_player->a_hitBox);
+                        }
+
+                        setRenderOrder(GAME);
                     break;
                 }
 
