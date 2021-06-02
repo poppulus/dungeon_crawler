@@ -238,6 +238,7 @@ void checkPlayerAtkCol(player *players)
                     if (collision(players[i].a_hitBox, plr))
                     {
                         players[j].hurt = true;
+                        players[j].blocked = true;
                         switch (players[i].face)
                         {
                             case UP:
@@ -253,7 +254,7 @@ void checkPlayerAtkCol(player *players)
                                 players[j].p_dir = PUSH_RIGHT;
                             break;
                         }
-                        continue;
+                        break;
                     }
                 }
             }
@@ -405,7 +406,7 @@ void setPlayerState(player *p)
     p->face = DOWN;
     p->xvel = 0;
     p->yvel = 0;
-    p->moving = false;
+    p->blocked = false;
     p->attacking = false;
     p->a_hold = false;
     p->sprint = false;
@@ -460,26 +461,28 @@ void updateLocalPlayer(player *p)
     {
         p->hurt_counter++;
 
-        if (p->push_counter < 30)
+        if (p->push_counter < 15)
         {
             p->push_counter++;
             switch (p->p_dir)
             {
                 case PUSH_UP:
-                    p->yvel = -2;
+                    p->yvel = -4;
                 break;
                 case PUSH_DOWN:
-                    p->yvel = 2;
+                    p->yvel = 4;
                 break;
                 case PUSH_LEFT:
-                    p->xvel = -2;
+                    p->xvel = -4;
                 break;
                 case PUSH_RIGHT:
-                    p->xvel = 2;
+                    p->xvel = 4;
                 break;
             }
         }
-
+        else if ((p->push_counter >= 15) && p->blocked) 
+            p->blocked = false;
+        
         if (p->hurt_counter >= 60)
         {
             p->push_counter = 0;
@@ -488,7 +491,7 @@ void updateLocalPlayer(player *p)
         }
     }
 
-    if (!p->attacking)
+    if (!p->attacking && !p->blocked)
     {
         switch (p->dir)
         {
@@ -526,13 +529,10 @@ void updateLocalPlayer(player *p)
     animatePlayer(p);
 
     if (p->x + p->xvel <= 0 || p->x + p->xvel >= 640)
-    {
         p->xvel = 0;
-    }
+    
     if (p->y + p->yvel <= 0 || p->y + p->yvel >= 480)
-    {
         p->yvel = 0;
-    }
 
     p->x += p->xvel;
     p->y += p->yvel;
@@ -546,26 +546,28 @@ void updateOtherPlayer(player *p)
         {
             p->hurt_counter++;
 
-            if (p->push_counter < 30)
+            if (p->push_counter < 15)
             {
                 p->push_counter++;
                 switch (p->p_dir)
                 {
                     case PUSH_UP:
-                        p->yvel = -2;
+                        p->yvel = -4;
                     break;
                     case PUSH_DOWN:
-                        p->yvel = 2;
+                        p->yvel = 4;
                     break;
                     case PUSH_LEFT:
-                        p->xvel = -2;
+                        p->xvel = -4;
                     break;
                     case PUSH_RIGHT:
-                        p->xvel = 2;
+                        p->xvel = 4;
                     break;
                 }
             }
-
+            else if ((p->push_counter >= 15) && p->blocked) 
+                p->blocked = false;
+            
             if (p->hurt_counter >= 60)
             {
                 p->push_counter = 0;
@@ -624,15 +626,9 @@ void updateOtherPlayer(player *p)
 
             if (p->nextmove.x != p->x && p->nextmove.y == p->y)
             {
-                if (p->nextmove.x > p->x)
-                {
-                    p->face = RIGHT;
-                }
-                else if (p->nextmove.x < p->x)
-                {
-                    p->face = LEFT;
-                }
-
+                if (p->nextmove.x > p->x) p->face = RIGHT;
+                else if (p->nextmove.x < p->x) p->face = LEFT;
+                
                 if (((p->nextmove.x == p->x + 1) 
                 || (p->nextmove.x == p->x - 1)) 
                 && (p->acounter % 8 == 0))
@@ -650,15 +646,9 @@ void updateOtherPlayer(player *p)
             }
             else if (p->nextmove.y != p->y && p->nextmove.x == p->x)
             {
-                if (p->nextmove.y > p->y)
-                {
-                    p->face = DOWN;
-                }
-                else if (p->nextmove.y < p->y)
-                {
-                    p->face = UP;
-                }
-
+                if (p->nextmove.y > p->y) p->face = DOWN;
+                else if (p->nextmove.y < p->y) p->face = UP;
+                
                 if (((p->nextmove.y == p->y + 1) 
                 || (p->nextmove.y == p->y - 1)) 
                 && (p->acounter % 8 == 0))

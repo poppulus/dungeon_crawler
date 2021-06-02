@@ -89,7 +89,6 @@ typedef struct player
 {
     SDL_Rect *clips, a_hitBox;
     p_next nextmove;
-
     int w, h, 
         x, y,
         face, dir, p_dir,
@@ -103,8 +102,8 @@ typedef struct player
                     i_queue[Q_SIZE],
                     hurt_counter,
                     push_counter;
-
-    bool moving:1, attacking:1, a_hold:1, sprint:1, spawned:1, hurt:1;
+                    
+    bool blocked:1, attacking:1, a_hold:1, sprint:1, spawned:1, hurt:1;
 } player;
 
 typedef struct game
@@ -118,7 +117,7 @@ typedef struct game
     player          *c_player;
     const char      *ip;
     unsigned char   state;
-    bool            running, host, client, kill;
+    bool            running:1, host:1, client:1, kill:1;
 } game;
 
 int sortfunc(const void *a, const void *b);
