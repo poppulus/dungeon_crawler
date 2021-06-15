@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 
 #define W_WIDTH 640
@@ -17,6 +18,7 @@
 #define ATTACK 4
 
 #define T_SIZE 20
+#define NW_P_SIZE 5
 
 enum TileColor
 {
@@ -59,6 +61,16 @@ enum P_PUSH_D
     PUSH_RIGHT
 };
 
+enum I_STATE
+{
+    I_UP = 1,
+    I_LEFT = 2,
+    I_DOWN = 4,
+    I_RIGHT = 8,
+    I_ATK = 16,
+    I_RUN = 32
+};
+
 enum G_STATE
 {
     MENU,
@@ -79,6 +91,12 @@ typedef struct network
     int sockfd, connfd, addrlen, n;
 } network;
 
+typedef struct nw_player
+{
+    short x, y;
+    unsigned char fd, input;
+} nw_player;
+
 typedef struct p_next
 {
     int x, y, atk_counter;
@@ -96,7 +114,7 @@ typedef struct player
         rx, ry,
         nid, color;
 
-    unsigned char   input[Q_SIZE], 
+    unsigned char   input, 
                     acounter, aindex, 
                     atk_counter, 
                     i_queue[Q_SIZE],
@@ -134,18 +152,20 @@ void playInput(SDL_Event, game *);
 
 void initPlayers(player [4]);
 void setPlayerState(player *);
+void setAttackBox(player *);
 
 void selectPlayerSlot(player *players, int cfd);
 void removePlayerSlot(player *players, int cfd);
 
 void updateLocalPlayer(player *);
 void updateOtherPlayer(player *);
+void updateClient(player *);
 
 void setMapTColor(SDL_Renderer *r, player p);
 
 void animatePlayer(player *);
-void playerWalking();
-void playerAttacking();
+void playerWalking(void);
+void playerAttacking(void);
 void renderPlayer(game, player *);
 
 void setRenderOrder(game);
@@ -160,4 +180,4 @@ void host_loop(game *G);
 void client_loop(game *G);
 
 void c_player_update(game *G, int i, short *buffer);
-void h_player_update(short *buffer, player *players, int sfd);
+void h_player_update(short *buffer, player *players);

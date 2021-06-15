@@ -76,11 +76,15 @@ int main(int argc, char const *argv[])
                     case PLAY:
                         playInput(e, &GAME);
                         updateLocalPlayer(GAME.c_player);
-
+                        
                         for (int p = 0; p < 4; p++) 
                         {
-                            if (&g_players[p] != GAME.c_player)
+                            if (&g_players[p] != GAME.c_player 
+                            && g_players[p].spawned)
+                            {
+                                //updateClient(&g_players[p]);
                                 updateOtherPlayer(&g_players[p]);
+                            }
                         }
                         
                         checkPlayerAtkCol(g_players);
