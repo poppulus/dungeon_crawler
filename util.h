@@ -79,10 +79,19 @@ enum G_STATE
     PLAY
 };
 
-typedef struct p_input
+typedef struct g_rules
 {
-    int last, current;
-} p_input;
+    unsigned short  g_timer,  
+                    p1_score, 
+                    p2_score, 
+                    p3_score, 
+                    p4_score;
+                    
+    char    p1_buf[4], 
+            p2_buf[4], 
+            p3_buf[4], 
+            p4_buf[4];
+} g_rules;
 
 typedef struct network
 {
@@ -129,13 +138,17 @@ typedef struct game
     SDL_Window      **window;
     SDL_Renderer    **renderer;
     Texture         *c_texture, *e_texture;
+    FC_Font         *font;
     network         nw;
+    g_rules         rules;
     SDL_Rect        *c_clips;
     player          *players;
     player          *c_player;
     const char      *ip;
     unsigned char   state;
-    bool            running:1, host:1, client:1, kill:1;
+    char            g_count[3];
+    char            s_count;
+    bool            running:1, s_cntdwn:1, g_cntdwn:1, host:1, client:1, kill:1;
 } game;
 
 int sortfunc(const void *a, const void *b);
@@ -144,7 +157,7 @@ void char_initClips(SDL_Rect *);
 void e_initClips(SDL_Rect *);
 
 bool collision(SDL_Rect a, SDL_Rect b);
-void checkMapCollision(game, SDL_Rect *block, unsigned char (*map_blocks)[]);
+void checkMapCollision(game *, SDL_Rect *block, unsigned char (*map_blocks)[]);
 void checkPlayerAtkCol(player *);
 
 void menuInput(SDL_Event, game *, thrd_t *nw_thread);
@@ -160,6 +173,8 @@ void removePlayerSlot(player *players, int cfd);
 void updateLocalPlayer(player *);
 void updateOtherPlayer(player *);
 void updateClient(player *);
+void addPlayerScore(char *);
+void subPlayerScore(char *);
 
 void setMapTColor(SDL_Renderer *r, player p);
 
@@ -169,6 +184,7 @@ void playerAttacking(void);
 void renderPlayer(game, player *);
 
 void setRenderOrder(game);
+void renderScore(game);
 
 void enqueue(unsigned char *q, unsigned char val);
 void dequeue(unsigned char *q, unsigned char val);

@@ -82,15 +82,15 @@ bool initTextureMap(SDL_Renderer **renderer, Texture *sheet, char *str)
 SDL_Texture *loadTexture(SDL_Renderer *renderer, char *path)
 {
     SDL_Texture *newTexture = NULL;
-
     SDL_Surface *loadedSurface = IMG_Load(path);
 
     if (loadedSurface == NULL) printf("could not load image! %s\n", IMG_GetError());
     else 
     {
         newTexture = SDL_CreateTextureFromSurface(renderer, loadedSurface);
-        
-        if (newTexture == NULL) printf("could not load optimised surface! %s\n", IMG_GetError());
+
+        if (newTexture == NULL) 
+            printf("could not load optimised surface! %s\n", IMG_GetError());
 
         SDL_FreeSurface(loadedSurface);
     }
@@ -180,9 +180,10 @@ bool collision(SDL_Rect a, SDL_Rect b)
     return true;
 }
 
-void checkMapCollision(game G, SDL_Rect *block, unsigned char (*map_blocks)[32])
+void checkMapCollision(game *G, SDL_Rect *block, unsigned char (*map_blocks)[32])
 {
-    int i, x, y;
+    int i, j, x, y;
+    bool same = false;
 
     for (y = 0; y < 24; y++)
     {
@@ -193,29 +194,86 @@ void checkMapCollision(game G, SDL_Rect *block, unsigned char (*map_blocks)[32])
 
             for (i = 0; i < 4; i++)
             {
-                if (G.players[i].spawned)
+                if (G->players[i].spawned)
                 {
-                    SDL_Rect plr = {.x = G.players[i].x, .y = G.players[i].y, .w = 1, .h = 1};
+                    SDL_Rect plr = {.x = G->players[i].x, .y = G->players[i].y, .w = 1, .h = 1};
 
-                    if (collision(*block, plr) && G.players[i].spawned) 
-                        map_blocks[y][x] = (i + 1);
+                    if (collision(*block, plr) && (map_blocks[y][x] != (i + 1))) 
+                    {
+                        for (j = 0; j < 4; j++)
+                        {
+                            if ((&G->players[i] != &G->players[j]) && G->players[j].spawned)
+                            {
+                                SDL_Rect test = {.x = G->players[j].x, .y = G->players[j].y, .w = 1, .h = 1};
+                                if (collision(*block, test)) 
+                                {
+                                    same = true; 
+                                    break;
+                                }
+                            }
+                        }
+                    
+                        if (!same)
+                        {
+                            switch (map_blocks[y][x])
+                            {
+                                case 1: 
+                                    G->rules.p1_score--; 
+                                    subPlayerScore(G->rules.p1_buf); 
+                                break;
+                                case 2: 
+                                    G->rules.p2_score--; 
+                                    subPlayerScore(G->rules.p2_buf); 
+                                break;
+                                case 3: 
+                                    G->rules.p3_score--; 
+                                    subPlayerScore(G->rules.p3_buf); 
+                                break;
+                                case 4: 
+                                    G->rules.p4_score--; 
+                                    subPlayerScore(G->rules.p4_buf); 
+                                break;
+                            }
+
+                            map_blocks[y][x] = (i + 1);
+
+                            switch (i + 1)
+                            {
+                                case 1: 
+                                    G->rules.p1_score++; 
+                                    addPlayerScore(G->rules.p1_buf); 
+                                break;
+                                case 2: 
+                                    G->rules.p2_score++; 
+                                    addPlayerScore(G->rules.p2_buf); 
+                                break;
+                                case 3: 
+                                    G->rules.p3_score++; 
+                                    addPlayerScore(G->rules.p3_buf); 
+                                break;
+                                case 4: 
+                                    G->rules.p4_score++; 
+                                    addPlayerScore(G->rules.p4_buf); 
+                                break;
+                            }
+                        }
+                    }
                 }
             }
-
             if (map_blocks[y][x]) 
             {
                 switch (map_blocks[y][x])
                 {
-                    case 1: SDL_SetRenderDrawColor(*G.renderer, 0x00, 0x00, 0xff, 0xff); 
+                    case 1: SDL_SetRenderDrawColor(*G->renderer, 0x00, 0x00, 0xff, 0xff); 
                     break;
-                    case 2: SDL_SetRenderDrawColor(*G.renderer, 0x00, 0xff, 0x00, 0xff); 
+                    case 2: SDL_SetRenderDrawColor(*G->renderer, 0x00, 0xff, 0x00, 0xff); 
                     break;
-                    case 3: SDL_SetRenderDrawColor(*G.renderer, 0xff, 0x00, 0x00, 0xff); 
+                    case 3: SDL_SetRenderDrawColor(*G->renderer, 0xff, 0x00, 0x00, 0xff); 
                     break;
-                    case 4: SDL_SetRenderDrawColor(*G.renderer, 0xff, 0xff, 0x00, 0xff); 
+                    case 4: SDL_SetRenderDrawColor(*G->renderer, 0xff, 0xff, 0x00, 0xff); 
                     break;
                 }
-                SDL_RenderFillRect(*G.renderer, block);
+                SDL_RenderFillRect(*G->renderer, block);
             }
         }
     }
@@ -723,6 +781,36 @@ void updateClient(player *p)
     p->nextmove.y = p->y + p->yvel;
 }
 
+void addPlayerScore(char *buf)
+{
+    if (buf[2] < 57) buf[2]++;
+    else
+    {
+        buf[2] = 48;
+        if (buf[1] < 57) buf[1]++;
+        else
+        {
+            buf[1] = 48;
+            if (buf[0] < 57) buf[0]++; 
+        }
+    }
+}
+
+void subPlayerScore(char *buf)
+{
+    if (buf[2] > 48) buf[2]--;
+    else
+    {
+        buf[2] = 57;
+        if (buf[1] > 48) buf[1]--;
+        else
+        {
+            buf[1] = 57;
+            if (buf[0] > 48) buf[0]--; 
+        }
+    }
+}
+
 void setMapTColor(SDL_Renderer *r, player p)
 {
     switch (p.color)
@@ -862,6 +950,18 @@ void setRenderOrder(game G)    // kind of slow?
     }
 }
 
+void renderScore(game G)
+{
+    //p1
+    FC_Draw(G.font, *G.renderer, 20, 20, G.rules.p1_buf);
+    //p2
+    FC_Draw(G.font, *G.renderer, W_WIDTH - 60, 20, G.rules.p2_buf);
+    //p3
+    FC_Draw(G.font, *G.renderer, 20, W_HEIGHT - 40, G.rules.p3_buf);
+    //p4
+    FC_Draw(G.font, *G.renderer, W_WIDTH - 60, W_HEIGHT - 40, G.rules.p4_buf);
+}
+
 void enqueue(unsigned char *q, unsigned char val)
 {
     for (int i = Q_SIZE - 1; i > 0; i--)
@@ -938,6 +1038,9 @@ int setup_server(void *ptr)
     G->c_player->spawned = true;
     G->c_player->nid = nw->sockfd;
     G->state = PLAY;
+
+    G->s_cntdwn = true;
+    G->rules.g_timer = 180;
 
     host_loop(G);
 

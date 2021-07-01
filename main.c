@@ -27,18 +27,29 @@ int main(int argc, char const *argv[])
         .renderer = &renderer,
         .c_texture = &c_texture,
         .e_texture = &e_texture,
+        .font = NULL,
         .players = g_players,
         .running = true,
         .host = false,
         .client = false,
         .kill = false,
+        .g_cntdwn = false,
+        .s_cntdwn = false,
         .c_clips = c_clips,
         .state = MENU,
+        .g_count = {53, 57, '\0'},
+        .s_count = 51,
         .c_player = NULL,
-        .nw.pfds = malloc(sizeof(*GAME.nw.pfds) * 4)
+        .nw.pfds = malloc(sizeof(*GAME.nw.pfds) * 4),
+        .rules.p1_buf = {48, 48, 48, '\0'},
+        .rules.p2_buf = {48, 48, 48, '\0'},
+        .rules.p3_buf = {48, 48, 48, '\0'},
+        .rules.p4_buf = {48, 48, 48, '\0'},
     };
 
-    int timer, delta;
+    //memset(&GAME.rules, 0, sizeof(GAME.rules));
+
+    int timer, delta, r_delta;
     thrd_t nw_thread;
 
     if (initSdl(&window, &renderer))
@@ -48,6 +59,9 @@ int main(int argc, char const *argv[])
         {
             if (argc > 1) GAME.ip = argv[1];
             else GAME.ip = "0.0.0.0";
+
+            GAME.font = FC_CreateFont();
+            FC_LoadFont(GAME.font, renderer, "assets/early_gameboy.ttf", 14, FC_MakeColor(0, 0, 0, 255), TTF_STYLE_NORMAL);
 
             char_initClips(c_clips);
             //e_initClips(e_clips);
@@ -59,6 +73,46 @@ int main(int argc, char const *argv[])
             while (GAME.running)
             {
                 timer = SDL_GetTicks();
+
+                // check game rule timers
+                if (GAME.s_cntdwn) 
+                {
+                    GAME.rules.g_timer--;
+                    if (GAME.rules.g_timer > 0) 
+                    {
+                        if (GAME.rules.g_timer % 60 == 0) GAME.s_count--;
+                    }
+                    else 
+                    {
+                        GAME.rules.g_timer = 3600;
+                        GAME.s_cntdwn = false;
+                        GAME.g_cntdwn = true;
+                    }
+                }
+                else if (GAME.g_cntdwn)
+                {
+                    GAME.rules.g_timer--;
+                    if (GAME.rules.g_timer > 0) 
+                    {
+                        if (GAME.rules.g_timer % 60 == 0) 
+                        {
+                            if (GAME.g_count[1] > 48) GAME.g_count[1]--;
+                            else 
+                            {
+                                GAME.g_count[0]--;
+                                GAME.g_count[1] = 57;
+                            }
+                        }
+                    }
+                    else 
+                    {
+                        GAME.s_count = 51;
+                        GAME.rules.g_timer = 180;
+                        GAME.g_count[0] = 54;
+                        GAME.g_count[1] = 57;
+                        GAME.g_cntdwn = false;
+                    }
+                }
 
                 // clear renderer
                 SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
@@ -75,30 +129,39 @@ int main(int argc, char const *argv[])
                     break;
                     case PLAY:
                         playInput(e, &GAME);
-                        updateLocalPlayer(GAME.c_player);
-                        
-                        for (int p = 0; p < 4; p++) 
-                        {
-                            if (&g_players[p] != GAME.c_player 
-                            && g_players[p].spawned)
-                            {
-                                //updateClient(&g_players[p]);
-                                updateOtherPlayer(&g_players[p]);
-                            }
-                        }
-                        
-                        checkPlayerAtkCol(g_players);
-                        checkMapCollision(GAME, &block, map_blocks);
 
-                        if (GAME.c_player->attacking) 
+                        if (GAME.g_cntdwn)
                         {
-                            SDL_SetRenderDrawColor(renderer, 0xff, 0x00, 0x00, 0xff);
-                            SDL_RenderFillRect(renderer, &GAME.c_player->a_hitBox);
+                            updateLocalPlayer(GAME.c_player);
+                            
+                            for (int p = 0; p < 4; p++) 
+                            {
+                                if (&g_players[p] != GAME.c_player 
+                                && g_players[p].spawned)
+                                {
+                                    //updateClient(&g_players[p]);
+                                    updateOtherPlayer(&g_players[p]);
+                                }
+                            }
+                            
+                            checkPlayerAtkCol(g_players);
+                            checkMapCollision(&GAME, &block, map_blocks);
+
+                            if (GAME.c_player->attacking) 
+                            {
+                                SDL_SetRenderDrawColor(renderer, 0xff, 0x00, 0x00, 0xff);
+                                SDL_RenderFillRect(renderer, &GAME.c_player->a_hitBox);
+                            }
+
+                            FC_Draw(GAME.font, renderer, 320, 20, GAME.g_count);
                         }
+                        else if (GAME.s_cntdwn) FC_Draw(GAME.font, renderer, 320, 20, &GAME.s_count);
 
                         setRenderOrder(GAME);
                     break;
                 }
+
+                renderScore(GAME);
 
                 // put it all on screen
                 SDL_RenderPresent(renderer);
@@ -115,5 +178,15 @@ int main(int argc, char const *argv[])
     
     freeTexture(&c_texture);
     //freeTexture(&e_texture);
+
+    SDL_DestroyWindow(window);
+    SDL_DestroyRenderer(renderer);
+    window = NULL;
+    renderer = NULL;
+
+    FC_FreeFont(GAME.font);
+
+    IMG_Quit();
+    SDL_Quit();
     return 0;
 }
