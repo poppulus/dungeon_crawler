@@ -128,6 +128,11 @@ int sortfunc(const void *a, const void *b)
     return *(int*)a - *(int*)b;
 }
 
+int r_sortfunc(const void *a, const void *b)
+{
+    return *(int*)b - *(int*)a;
+}
+
 // game stuff
 //
 void char_initClips(SDL_Rect *clips)
@@ -948,6 +953,31 @@ void setRenderOrder(game G)    // kind of slow?
             }
         }
     }
+}
+
+int decideWinner(game G)
+{
+    int i, order[4];
+
+    for (i = 0; i < 4; i++)
+    {
+        switch (i)
+        {
+            case 0: order[i] = G.rules.p1_score; break;
+            case 1: order[i] = G.rules.p2_score; break;
+            case 2: order[i] = G.rules.p3_score; break;
+            case 3: order[i] = G.rules.p4_score; break;
+        }
+    }
+
+    qsort(order, 4, sizeof(int), r_sortfunc);
+
+    if (order[0] == G.rules.p1_score) return 1;
+    else if (order[0] == G.rules.p2_score) return 2;
+    else if (order[0] == G.rules.p3_score) return 3;
+    else if (order[0] == G.rules.p4_score) return 4;
+
+    return 0;
 }
 
 void renderScore(game G)

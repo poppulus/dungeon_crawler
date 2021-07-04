@@ -49,8 +49,10 @@ int main(int argc, char const *argv[])
 
     //memset(&GAME.rules, 0, sizeof(GAME.rules));
 
-    int timer, delta, r_delta;
+    int timer, delta, r_delta, winner;
     thrd_t nw_thread;
+
+    char *endofgame;
 
     if (initSdl(&window, &renderer))
     {
@@ -84,7 +86,7 @@ int main(int argc, char const *argv[])
                     }
                     else 
                     {
-                        GAME.rules.g_timer = 3600;
+                        GAME.rules.g_timer = 600;
                         GAME.s_cntdwn = false;
                         GAME.g_cntdwn = true;
                     }
@@ -111,6 +113,22 @@ int main(int argc, char const *argv[])
                         GAME.g_count[0] = 54;
                         GAME.g_count[1] = 57;
                         GAME.g_cntdwn = false;
+
+                        GAME.g_done = true;
+
+                        // decide the winner, or a draw
+                        winner = decideWinner(GAME);
+
+                        char nmb = winner + 48;
+                        endofgame = "Player  wins!";
+
+                        switch (winner)
+                        {
+                            case 0: printf("draw\n"); break;
+                            case 1 ... 4: 
+                                printf("player%d winner\n", winner); 
+                            break;
+                        }
                     }
                 }
 
@@ -156,6 +174,7 @@ int main(int argc, char const *argv[])
                             FC_Draw(GAME.font, renderer, 320, 20, GAME.g_count);
                         }
                         else if (GAME.s_cntdwn) FC_Draw(GAME.font, renderer, 320, 20, &GAME.s_count);
+                        else if (GAME.g_done) FC_Draw(GAME.font, renderer, 220, 20, endofgame);
 
                         setRenderOrder(GAME);
                     break;

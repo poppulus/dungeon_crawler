@@ -148,10 +148,11 @@ typedef struct game
     unsigned char   state;
     char            g_count[3];
     char            s_count;
-    bool            running:1, s_cntdwn:1, g_cntdwn:1, host:1, client:1, kill:1;
+    bool            running:1, s_cntdwn:1, g_cntdwn:1, g_done:1, host:1, client:1, kill:1;
 } game;
 
 int sortfunc(const void *a, const void *b);
+int r_sortfunc(const void *a, const void *b);
 
 void char_initClips(SDL_Rect *);
 void e_initClips(SDL_Rect *);
@@ -185,6 +186,8 @@ void renderPlayer(game, player *);
 
 void setRenderOrder(game);
 void renderScore(game);
+
+int decideWinner(game);
 
 void enqueue(unsigned char *q, unsigned char val);
 void dequeue(unsigned char *q, unsigned char val);
