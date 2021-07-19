@@ -325,6 +325,53 @@ void checkPlayerAtkCol(player *players)
     }
 }
 
+bool checkPlayerReady(player *p)
+{
+    unsigned char test = 0, n = 0, m = 0;
+    //bool p1, p2, p3, p4;
+
+    for (short i = 0; i < 4; i++)
+    {
+        if (p[i].spawned && p[i].ready)
+        {
+            n++;
+            switch (i)
+            {
+                case 0: test += 1; break;
+                case 1: test += 2; break;
+                case 2: test += 4; break;
+                case 3: test += 8; break;
+            }
+        }
+    }
+
+    if (test & 1) m++;
+    if (test & 2) m++;
+    if (test & 4) m++;
+    if (test & 8) m++;
+
+    if (m == n) return true;
+    
+    /*
+    for (short j = 0; j < 4; j++)
+    {
+        n = test << j;
+        if (n & test && p[j].ready)
+        {
+            switch (j)
+            {
+                case 0: p1 = p[j].spawned; break;
+                case 1: p2 = p[j].spawned; break;
+                case 2: p3 = p[j].spawned; break;
+                case 3: p4 = p[j].spawned; break;
+            }
+        }
+    }
+    */
+
+    return false;
+}
+
 void menuInput(SDL_Event e, game *g, thrd_t *nw_thread)
 {
     while (SDL_PollEvent(&e) != 0)
@@ -443,15 +490,28 @@ void initPlayers(player p[4])
     for (int i = 0; i < 4; i++)
     {
         setPlayerState(&p[i]);
+        p[i].cube.plr = i + 1;
         switch (i)
         {
-            case 1:p[i].x = (W_WIDTH) - 1;
+            case 0:
+                p[i].cube.rect.x = 30;
+                p[i].cube.rect.y = 30;
             break;
-            case 2:p[i].y = (W_HEIGHT) - 1;
+            case 1: 
+                p[i].x = W_WIDTH - 1;
+                p[i].cube.rect.x = W_WIDTH - 50;
+                p[i].cube.rect.y = 30;
+            break;
+            case 2: 
+                p[i].y = W_HEIGHT - 1;
+                p[i].cube.rect.x = 30;
+                p[i].cube.rect.y = W_HEIGHT - 50;
             break;
             case 3:
-                p[i].x = (W_WIDTH) - 1;
-                p[i].y = (W_HEIGHT) - 1;
+                p[i].x = W_WIDTH - 1;
+                p[i].y = W_HEIGHT - 1;
+                p[i].cube.rect.x = W_WIDTH - 50;
+                p[i].cube.rect.y = W_HEIGHT - 50;
             break;
         }
     }
@@ -462,6 +522,10 @@ void setPlayerState(player *p)
     memset(p, 0, sizeof(*p));
     p->a_hitBox.w = 20;
     p->a_hitBox.h = 20;
+    p->cube.rect.w = 10;
+    p->cube.rect.h = 10;
+    p->cube.xvel = 0;
+    p->cube.yvel = 0;
 }
 
 void setAttackBox(player *p)
@@ -957,7 +1021,7 @@ void setRenderOrder(game G)    // kind of slow?
 
 int decideWinner(game G)
 {
-    int i, order[4];
+    unsigned short i, order[4];
 
     for (i = 0; i < 4; i++)
     {
@@ -970,9 +1034,10 @@ int decideWinner(game G)
         }
     }
 
-    qsort(order, 4, sizeof(int), r_sortfunc);
+    qsort(order, 4, sizeof(short), r_sortfunc);
 
-    if (order[0] == G.rules.p1_score) return 1;
+    if (order[0] == 0) return 0;
+    else if (order[0] == G.rules.p1_score) return 1;
     else if (order[0] == G.rules.p2_score) return 2;
     else if (order[0] == G.rules.p3_score) return 3;
     else if (order[0] == G.rules.p4_score) return 4;
@@ -1069,8 +1134,7 @@ int setup_server(void *ptr)
     G->c_player->nid = nw->sockfd;
     G->state = PLAY;
 
-    G->s_cntdwn = true;
-    G->rules.g_timer = 180;
+    G->c_player->ready = true;
 
     host_loop(G);
 
@@ -1178,6 +1242,15 @@ void host_loop(game *G)
     while (!q && G->running && !G->kill)
     {
         timer = SDL_GetTicks();
+
+        //  check if all connected players are ready
+        if (!G->g_ready && checkPlayerReady(G->players))
+        {
+            printf("all ready\n");
+            G->g_ready = true;
+            G->s_cntdwn = true;
+            G->rules.g_timer = 180;
+        }
         
         poll_count = poll(G->nw.pfds, fd_counter, -1);
 
@@ -1344,6 +1417,7 @@ void client_loop(game *G)
                         && G->c_player == NULL)
                         {
                             G->c_player = &G->players[i];
+                            G->c_player->ready = true;
                             G->state = PLAY;
                         }
                         G->players[i].nid = down_buf[(i * NW_P_SIZE)];

@@ -112,10 +112,17 @@ typedef struct p_next
     bool attacking;
 } p_next;
 
+typedef struct p_cube
+{
+    SDL_Rect rect;
+    unsigned char xvel, yvel, plr;
+} p_cube;
+
 typedef struct player
 {
     SDL_Rect *clips, a_hitBox;
     p_next nextmove;
+    p_cube cube;
     int w, h, 
         x, y,
         face, dir, p_dir,
@@ -130,7 +137,8 @@ typedef struct player
                     hurt_counter,
                     push_counter;
                     
-    bool blocked:1, attacking:1, a_hold:1, sprint:1, spawned:1, hurt:1;
+    bool blocked:1, attacking:1, a_hold:1, 
+         sprint:1, spawned:1, ready:1, hurt:1;
 } player;
 
 typedef struct game
@@ -142,13 +150,15 @@ typedef struct game
     network         nw;
     g_rules         rules;
     SDL_Rect        *c_clips;
-    player          *players;
+    player          players[4];
     player          *c_player;
     const char      *ip;
     unsigned char   state;
     char            g_count[3];
+    bool            running:1, s_cntdwn:1, 
+                    g_cntdwn:1, g_done:1, g_ready:1, 
+                    host:1, client:1, kill:1;
     char            s_count;
-    bool            running:1, s_cntdwn:1, g_cntdwn:1, g_done:1, host:1, client:1, kill:1;
 } game;
 
 int sortfunc(const void *a, const void *b);
@@ -160,6 +170,8 @@ void e_initClips(SDL_Rect *);
 bool collision(SDL_Rect a, SDL_Rect b);
 void checkMapCollision(game *, SDL_Rect *block, unsigned char (*map_blocks)[]);
 void checkPlayerAtkCol(player *);
+
+bool checkPlayerReady(player *);
 
 void menuInput(SDL_Event, game *, thrd_t *nw_thread);
 void playInput(SDL_Event, game *);

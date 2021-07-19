@@ -20,39 +20,37 @@ int main(int argc, char const *argv[])
         .y = 0
     };
 
-    player g_players[4];
-
     game GAME = {
         .window = &window,
         .renderer = &renderer,
         .c_texture = &c_texture,
         .e_texture = &e_texture,
         .font = NULL,
-        .players = g_players,
         .running = true,
         .host = false,
         .client = false,
         .kill = false,
         .g_cntdwn = false,
         .s_cntdwn = false,
+        .g_ready = false,
         .c_clips = c_clips,
         .state = MENU,
-        .g_count = {53, 57, '\0'},
+        .g_count = {54, 48, '\0'},
         .s_count = 51,
         .c_player = NULL,
         .nw.pfds = malloc(sizeof(*GAME.nw.pfds) * 4),
         .rules.p1_buf = {48, 48, 48, '\0'},
         .rules.p2_buf = {48, 48, 48, '\0'},
         .rules.p3_buf = {48, 48, 48, '\0'},
-        .rules.p4_buf = {48, 48, 48, '\0'},
+        .rules.p4_buf = {48, 48, 48, '\0'}
     };
-
-    //memset(&GAME.rules, 0, sizeof(GAME.rules));
 
     int timer, delta, r_delta, winner;
     thrd_t nw_thread;
 
-    char *endofgame;
+    char g_winner[14] = "Player  wins!", 
+        *g_message = NULL, 
+        nmb;
 
     if (initSdl(&window, &renderer))
     {
@@ -70,7 +68,7 @@ int main(int argc, char const *argv[])
 
             memset(map_blocks, 0, (32 * 24));
 
-            initPlayers(g_players);
+            initPlayers(GAME.players);
 
             while (GAME.running)
             {
@@ -119,16 +117,13 @@ int main(int argc, char const *argv[])
                         // decide the winner, or a draw
                         winner = decideWinner(GAME);
 
-                        char nmb = winner + 48;
-                        endofgame = "Player  wins!";
-
-                        switch (winner)
+                        if (winner > 0)
                         {
-                            case 0: printf("draw\n"); break;
-                            case 1 ... 4: 
-                                printf("player%d winner\n", winner); 
-                            break;
+                            nmb = winner + 48;
+                            g_winner[6] = nmb;
+                            g_message = g_winner;
                         }
+                        else g_message = "Draw!";
                     }
                 }
 
@@ -154,15 +149,15 @@ int main(int argc, char const *argv[])
                             
                             for (int p = 0; p < 4; p++) 
                             {
-                                if (&g_players[p] != GAME.c_player 
-                                && g_players[p].spawned)
+                                if (&GAME.players[p] != GAME.c_player 
+                                && GAME.players[p].spawned)
                                 {
                                     //updateClient(&g_players[p]);
-                                    updateOtherPlayer(&g_players[p]);
+                                    updateOtherPlayer(&GAME.players[p]);
                                 }
                             }
                             
-                            checkPlayerAtkCol(g_players);
+                            checkPlayerAtkCol(GAME.players);
                             checkMapCollision(&GAME, &block, map_blocks);
 
                             if (GAME.c_player->attacking) 
@@ -174,7 +169,28 @@ int main(int argc, char const *argv[])
                             FC_Draw(GAME.font, renderer, 320, 20, GAME.g_count);
                         }
                         else if (GAME.s_cntdwn) FC_Draw(GAME.font, renderer, 320, 20, &GAME.s_count);
-                        else if (GAME.g_done) FC_Draw(GAME.font, renderer, 220, 20, endofgame);
+                        else if (GAME.g_done) FC_Draw(GAME.font, renderer, 220, 200, g_message);
+
+                        // draw player cubes
+                        for (int i = 0; i < 4; i++)
+                        {
+                            switch (i)
+                            {
+                                case 0: 
+                                    SDL_SetRenderDrawColor(renderer, 0x00, 0xaa, 0xff, 0xff); 
+                                break;
+                                case 1: 
+                                    SDL_SetRenderDrawColor(renderer, 0xaa, 0xff, 0x00, 0xff); 
+                                break;
+                                case 2:
+                                    SDL_SetRenderDrawColor(renderer, 0xff, 0xaa, 0x00, 0xff); 
+                                break;
+                                case 3: 
+                                    SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xaa, 0xff);
+                                break;
+                            }
+                            SDL_RenderFillRect(renderer, &GAME.players[i].cube.rect);
+                        }
 
                         setRenderOrder(GAME);
                     break;
