@@ -36,9 +36,10 @@ int main(int argc, char const *argv[])
         .c_clips = c_clips,
         .state = MENU,
         .g_count = {54, 48, '\0'},
-        .s_count = 51,
+        .s_count = 53,
         .c_player = NULL,
         .nw.pfds = malloc(sizeof(*GAME.nw.pfds) * 4),
+        .rules.g_timer = 300,
         .rules.p1_buf = {48, 48, 48, '\0'},
         .rules.p2_buf = {48, 48, 48, '\0'},
         .rules.p3_buf = {48, 48, 48, '\0'},
@@ -106,8 +107,8 @@ int main(int argc, char const *argv[])
                     }
                     else 
                     {
-                        GAME.s_count = 51;
-                        GAME.rules.g_timer = 180;
+                        GAME.s_count = 53;
+                        GAME.rules.g_timer = 300;
                         GAME.g_count[0] = 54;
                         GAME.g_count[1] = 57;
                         GAME.g_cntdwn = false;
@@ -168,9 +169,60 @@ int main(int argc, char const *argv[])
 
                             FC_Draw(GAME.font, renderer, 320, 20, GAME.g_count);
                         }
-                        else if (GAME.s_cntdwn) FC_Draw(GAME.font, renderer, 320, 20, &GAME.s_count);
-                        else if (GAME.g_done) FC_Draw(GAME.font, renderer, 220, 200, g_message);
-
+                        else 
+                        {
+                            if (GAME.s_cntdwn) 
+                            {
+                                FC_Draw(GAME.font, renderer, 320, 20, &GAME.s_count);
+                                for (int r = 0; r < 4; r++)
+                                {
+                                    if (GAME.players[r].ready)
+                                    {
+                                        switch (r)
+                                        {
+                                            case 0:
+                                                FC_Draw(GAME.font, renderer, 20, 40, "Ready!");
+                                            break;
+                                            case 1:
+                                                FC_Draw(GAME.font, renderer, W_WIDTH - 60, 40, "Ready!");
+                                            break;
+                                            case 2:
+                                                FC_Draw(GAME.font, renderer, 20, W_HEIGHT - 60, "Ready!");
+                                            break;
+                                            case 3:
+                                                FC_Draw(GAME.font, renderer, W_WIDTH - 60, W_HEIGHT - 60, "Ready!");
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            else if (GAME.g_done) FC_Draw(GAME.font, renderer, 220, 200, g_message);
+                            else 
+                            {
+                                for (int r = 0; r < 4; r++)
+                                {
+                                    if (GAME.players[r].ready)
+                                    {
+                                        switch (r)
+                                        {
+                                            case 0:
+                                                FC_Draw(GAME.font, renderer, 20, 40, "Ready!");
+                                            break;
+                                            case 1:
+                                                FC_Draw(GAME.font, renderer, W_WIDTH - 60, 40, "Ready!");
+                                            break;
+                                            case 2:
+                                                FC_Draw(GAME.font, renderer, 20, W_HEIGHT - 60, "Ready!");
+                                            break;
+                                            case 3:
+                                                FC_Draw(GAME.font, renderer, W_WIDTH - 60, W_HEIGHT - 60, "Ready!");
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
                         // draw player cubes
                         for (int i = 0; i < 4; i++)
                         {

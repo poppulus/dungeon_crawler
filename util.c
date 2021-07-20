@@ -350,7 +350,7 @@ bool checkPlayerReady(player *p)
     if (test & 4) m++;
     if (test & 8) m++;
 
-    if (m == n) return true;
+    if (m == n && (m != 0 && n != 0)) return true;
     
     /*
     for (short j = 0; j < 4; j++)
@@ -421,6 +421,12 @@ void playInput(SDL_Event e, game *g)
                         g->kill = true;
                     break;
                     case SDLK_ESCAPE: g->running = false; break;
+                    case SDLK_RETURN:
+                    case SDLK_RETURN2:
+                    case SDLK_KP_ENTER:
+                        if (!g->g_cntdwn) 
+                            g->c_player->ready = !g->c_player->ready;
+                    break;
                     case SDLK_SPACE:
                         if (!e.key.repeat)
                         {
@@ -1045,6 +1051,14 @@ int decideWinner(game G)
     return 0;
 }
 
+void resetTimer(game *G)
+{
+    G->rules.g_timer = 300;
+    G->s_count = 53;
+    G->g_count[0] = 54;
+    G->g_count[1] = 48;
+}
+
 void renderScore(game G)
 {
     //p1
@@ -1133,8 +1147,6 @@ int setup_server(void *ptr)
     G->c_player->spawned = true;
     G->c_player->nid = nw->sockfd;
     G->state = PLAY;
-
-    G->c_player->ready = true;
 
     host_loop(G);
 
@@ -1243,16 +1255,7 @@ void host_loop(game *G)
     {
         timer = SDL_GetTicks();
 
-        //  check if all connected players are ready
-        if (!G->g_ready && checkPlayerReady(G->players))
-        {
-            printf("all ready\n");
-            G->g_ready = true;
-            G->s_cntdwn = true;
-            G->rules.g_timer = 180;
-        }
-        
-        poll_count = poll(G->nw.pfds, fd_counter, -1);
+        poll_count = poll(G->nw.pfds, fd_counter, 100);
 
         if (poll_count == -1)
         {
@@ -1321,6 +1324,21 @@ void host_loop(game *G)
                     }
                 }
             }
+        }
+
+        //  check if all connected players are ready
+        if (!G->g_ready && checkPlayerReady(G->players))
+        {
+            printf("all players ready\n");
+            G->g_ready = true;
+            G->s_cntdwn = true;
+        }
+        else if (G->g_ready && !checkPlayerReady(G->players))
+        {
+            printf("player(s) not ready\n");
+            G->g_ready = false;
+            G->s_cntdwn = false;
+            resetTimer(G);
         }
 
         h_player_update(send_buf, G->players);

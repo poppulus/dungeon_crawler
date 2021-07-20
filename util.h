@@ -200,6 +200,7 @@ void setRenderOrder(game);
 void renderScore(game);
 
 int decideWinner(game);
+void resetTimer(game *);
 
 void enqueue(unsigned char *q, unsigned char val);
 void dequeue(unsigned char *q, unsigned char val);
