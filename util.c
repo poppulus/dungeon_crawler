@@ -279,6 +279,8 @@ void checkMapCollision(game *G, SDL_Rect *block, unsigned char (*map_blocks)[32]
                     break;
                 }
                 SDL_RenderFillRect(*G->renderer, block);
+                SDL_SetRenderDrawColor(*G->renderer, 0xee, 0xee, 0xee, 0xff);
+                SDL_RenderDrawRect(*G->renderer, block);
             }
         }
     }
@@ -1071,6 +1073,37 @@ void renderScore(game G)
     FC_Draw(G.font, *G.renderer, W_WIDTH - 60, W_HEIGHT - 40, G.rules.p4_buf);
 }
 
+void drawMapTiles(game G, SDL_Rect *block, unsigned char (*map_blocks)[32])
+{
+    int x, y;
+    for (y = 0; y < 24; y++)
+    {
+        for (x = 0; x < 32; x++)
+        {
+            block->x = x * 20;
+            block->y = y * 20;
+
+            if (map_blocks[y][x])
+            {
+                switch (map_blocks[y][x])
+                {
+                    case 1: SDL_SetRenderDrawColor(*G.renderer, 0x00, 0x00, 0xff, 0xff); 
+                    break;
+                    case 2: SDL_SetRenderDrawColor(*G.renderer, 0x00, 0xff, 0x00, 0xff); 
+                    break;
+                    case 3: SDL_SetRenderDrawColor(*G.renderer, 0xff, 0x00, 0x00, 0xff); 
+                    break;
+                    case 4: SDL_SetRenderDrawColor(*G.renderer, 0xff, 0xff, 0x00, 0xff); 
+                    break;
+                }
+                SDL_RenderFillRect(*G.renderer, block);
+                SDL_SetRenderDrawColor(*G.renderer, 0xee, 0xee, 0xee, 0xff);
+                SDL_RenderDrawRect(*G.renderer, block);
+            }
+        }
+    }
+}
+
 void enqueue(unsigned char *q, unsigned char val)
 {
     for (int i = Q_SIZE - 1; i > 0; i--)
@@ -1130,7 +1163,7 @@ int setup_server(void *ptr)
         thrd_exit(1);
 	}
 	else
-		printf("Socket successfully binded..\n");
+		printf("Socket successfully bound..\n");
 
 	nw->addrlen = sizeof(nw->cli);
 
@@ -1242,7 +1275,7 @@ void host_loop(game *G)
     int nbytes, 
         p, i, j, 
         fd_counter = 1, poll_count;
-    short buffer[5];
+    short buffer[6];
     short send_buf[16];
     bool q = false;
 
@@ -1318,6 +1351,7 @@ void host_loop(game *G)
                                 G->players[i].nextmove.y = buffer[2];
                                 G->players[i].nextmove.attacking = buffer[3];
                                 G->players[i].nextmove.atk_counter = buffer[4];
+                                G->players[i].ready = buffer[5];
                             }
                         }
                         bzero(buffer, sizeof(buffer));
@@ -1373,7 +1407,7 @@ void host_loop(game *G)
 void client_loop(game *G)
 {
     int i, nbytes, timer, delta;
-    short buffer[5];
+    short buffer[6];
     short down_buf[16];
     bool q = false;
 
@@ -1401,6 +1435,7 @@ void client_loop(game *G)
             buffer[2] = G->c_player->y;
             buffer[3] = G->c_player->attacking;
             buffer[4] = G->c_player->atk_counter; 
+            buffer[5] = G->c_player->ready;
         }
 
         if (send(G->nw.sockfd, buffer, sizeof(buffer), 0) == -1)
@@ -1483,16 +1518,80 @@ void h_player_update(short *buffer, player *players)
     buffer[N_P1+2] = players[PLAYER1].y;
     buffer[N_P1+3] = players[PLAYER1].attacking;
     buffer[N_P1+4] = players[PLAYER1].atk_counter;
+    buffer[N_P1+5] = players[PLAYER1].ready;
     
     for (int i = 1; i < 4; i++)
     {
-        buffer[i * NW_P_SIZE] = players[i].nid;
+        buffer[(i * NW_P_SIZE)] = players[i].nid;
         if (players[i].nid != 0)
         {
             buffer[(i * NW_P_SIZE) + 1] = players[i].nextmove.x;
             buffer[(i * NW_P_SIZE) + 2] = players[i].nextmove.y;
             buffer[(i * NW_P_SIZE) + 3] = players[i].nextmove.attacking;
             buffer[(i * NW_P_SIZE) + 4] = players[i].nextmove.atk_counter;
+            buffer[(i * NW_P_SIZE) + 4] = players[i].ready;
         }
     }
+}
+
+void host_countdown(game *G, int *winner)
+{
+    char nmb;
+    if (G->s_cntdwn) 
+    {
+        G->rules.g_timer--;
+        if (G->rules.g_timer > 0) 
+        {
+            if (G->rules.g_timer % 60 == 0) G->s_count--;
+        }
+        else 
+        {
+            G->rules.g_timer = 600;
+            G->s_cntdwn = false;
+            G->g_cntdwn = true;
+        }
+    }
+    else if (G->g_cntdwn)
+    {
+        G->rules.g_timer--;
+        if (G->rules.g_timer > 0) 
+        {
+            if (G->rules.g_timer % 60 == 0) 
+            {
+                if (G->g_count[1] > 48) G->g_count[1]--;
+                else 
+                {
+                    G->g_count[0]--;
+                    G->g_count[1] = 57;
+                }
+            }
+        }
+        else 
+        {
+            G->s_count = 53;
+            G->rules.g_timer = 300;
+            G->g_count[0] = 54;
+            G->g_count[1] = 57;
+            G->g_cntdwn = false;
+
+            G->g_done = true;
+
+            // decide the winner, or a draw
+            *winner = decideWinner(*G);
+
+            if (winner > 0)
+            {
+                nmb = (*winner) + 48;
+                G->g_winner[6] = nmb;
+                G->g_message = G->g_winner;
+            }
+            else G->g_message = "Draw!";
+        }
+    }
+
+}
+
+void client_countdown(game *G)
+{
+
 }

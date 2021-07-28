@@ -143,6 +143,7 @@ typedef struct player
 
 typedef struct game
 {
+    char            g_winner[14], *g_message;
     SDL_Window      **window;
     SDL_Renderer    **renderer;
     Texture         *c_texture, *e_texture;
@@ -198,6 +199,7 @@ void renderPlayer(game, player *);
 
 void setRenderOrder(game);
 void renderScore(game);
+void drawMapTiles(game G, SDL_Rect *block, unsigned char (*map_blocks)[]);
 
 int decideWinner(game);
 void resetTimer(game *);
@@ -213,3 +215,10 @@ void client_loop(game *G);
 
 void c_player_update(game *G, int i, short *buffer);
 void h_player_update(short *buffer, player *players);
+
+// for online timer sync
+void host_sync();
+void client_sync();
+
+void host_countdown(game *G, int *winner);
+void client_countdown(game *G);

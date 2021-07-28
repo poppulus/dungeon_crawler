@@ -43,15 +43,12 @@ int main(int argc, char const *argv[])
         .rules.p1_buf = {48, 48, 48, '\0'},
         .rules.p2_buf = {48, 48, 48, '\0'},
         .rules.p3_buf = {48, 48, 48, '\0'},
-        .rules.p4_buf = {48, 48, 48, '\0'}
+        .rules.p4_buf = {48, 48, 48, '\0'},
+        .g_winner = "Player  wins!"
     };
 
     int timer, delta, r_delta, winner;
     thrd_t nw_thread;
-
-    char g_winner[14] = "Player  wins!", 
-        *g_message = NULL, 
-        nmb;
 
     if (initSdl(&window, &renderer))
     {
@@ -76,57 +73,8 @@ int main(int argc, char const *argv[])
                 timer = SDL_GetTicks();
 
                 // check game rule timers
-                if (GAME.s_cntdwn) 
-                {
-                    GAME.rules.g_timer--;
-                    if (GAME.rules.g_timer > 0) 
-                    {
-                        if (GAME.rules.g_timer % 60 == 0) GAME.s_count--;
-                    }
-                    else 
-                    {
-                        GAME.rules.g_timer = 600;
-                        GAME.s_cntdwn = false;
-                        GAME.g_cntdwn = true;
-                    }
-                }
-                else if (GAME.g_cntdwn)
-                {
-                    GAME.rules.g_timer--;
-                    if (GAME.rules.g_timer > 0) 
-                    {
-                        if (GAME.rules.g_timer % 60 == 0) 
-                        {
-                            if (GAME.g_count[1] > 48) GAME.g_count[1]--;
-                            else 
-                            {
-                                GAME.g_count[0]--;
-                                GAME.g_count[1] = 57;
-                            }
-                        }
-                    }
-                    else 
-                    {
-                        GAME.s_count = 53;
-                        GAME.rules.g_timer = 300;
-                        GAME.g_count[0] = 54;
-                        GAME.g_count[1] = 57;
-                        GAME.g_cntdwn = false;
-
-                        GAME.g_done = true;
-
-                        // decide the winner, or a draw
-                        winner = decideWinner(GAME);
-
-                        if (winner > 0)
-                        {
-                            nmb = winner + 48;
-                            g_winner[6] = nmb;
-                            g_message = g_winner;
-                        }
-                        else g_message = "Draw!";
-                    }
-                }
+                if (GAME.host) host_countdown(&GAME, &winner);
+                else if (GAME.client) client_countdown(&GAME);
 
                 // clear renderer
                 SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
@@ -196,7 +144,11 @@ int main(int argc, char const *argv[])
                                     }
                                 }
                             }
-                            else if (GAME.g_done) FC_Draw(GAME.font, renderer, 220, 200, g_message);
+                            else if (GAME.g_done) 
+                            {
+                                drawMapTiles(GAME, &block, map_blocks);
+                                FC_Draw(GAME.font, renderer, 220, 200, GAME.g_message);
+                            }
                             else 
                             {
                                 for (int r = 0; r < 4; r++)
