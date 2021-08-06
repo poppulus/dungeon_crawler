@@ -47,9 +47,9 @@ enum PlayerIndex
 enum N_PINDEX
 {
     N_P1,
-    N_P2 = 5,
-    N_P3 = 10,
-    N_P4 = 15
+    N_P2 = 7,
+    N_P3 = 13,
+    N_P4 = 19
 };
 
 enum P_PUSH_D
@@ -218,7 +218,7 @@ void h_player_update(short *buffer, player *players);
 
 // for online timer sync
 void host_sync();
-void client_sync();
+void client_sync(game *G, short *buffer);
 
 void host_countdown(game *G, int *winner);
 void client_countdown(game *G);

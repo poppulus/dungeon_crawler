@@ -329,47 +329,16 @@ void checkPlayerAtkCol(player *players)
 
 bool checkPlayerReady(player *p)
 {
-    unsigned char test = 0, n = 0, m = 0;
-    //bool p1, p2, p3, p4;
+    short i = 0;
+    unsigned char n = 0, m = 0;
 
-    for (short i = 0; i < 4; i++)
-    {
-        if (p[i].spawned && p[i].ready)
-        {
-            n++;
-            switch (i)
-            {
-                case 0: test += 1; break;
-                case 1: test += 2; break;
-                case 2: test += 4; break;
-                case 3: test += 8; break;
-            }
-        }
-    }
+    for (i = 0; i < 4; i++) 
+        if (p[i].spawned) n++;
 
-    if (test & 1) m++;
-    if (test & 2) m++;
-    if (test & 4) m++;
-    if (test & 8) m++;
-
-    if (m == n && (m != 0 && n != 0)) return true;
+    for (i = 0; i < 4; i++) 
+        if (p[i].spawned && p[i].ready) m++;
     
-    /*
-    for (short j = 0; j < 4; j++)
-    {
-        n = test << j;
-        if (n & test && p[j].ready)
-        {
-            switch (j)
-            {
-                case 0: p1 = p[j].spawned; break;
-                case 1: p2 = p[j].spawned; break;
-                case 2: p3 = p[j].spawned; break;
-                case 3: p4 = p[j].spawned; break;
-            }
-        }
-    }
-    */
+    if (m == n && (m > 0 && n > 0)) return true;
 
     return false;
 }
@@ -426,7 +395,7 @@ void playInput(SDL_Event e, game *g)
                     case SDLK_RETURN:
                     case SDLK_RETURN2:
                     case SDLK_KP_ENTER:
-                        if (!g->g_cntdwn) 
+                        if (!g->g_cntdwn && (g->host || g->client)) 
                             g->c_player->ready = !g->c_player->ready;
                     break;
                     case SDLK_SPACE:
@@ -1276,7 +1245,7 @@ void host_loop(game *G)
         p, i, j, 
         fd_counter = 1, poll_count;
     short buffer[6];
-    short send_buf[16];
+    short send_buf[25];
     bool q = false;
 
     G->nw.pfds[0].fd = G->nw.sockfd;
@@ -1377,6 +1346,11 @@ void host_loop(game *G)
 
         h_player_update(send_buf, G->players);
 
+        // testing countdown
+        if (G->s_cntdwn) send_buf[N_P1+6] = G->s_count;
+        else send_buf[N_P1+6] = 0;
+        //
+
         for (j = 1; j < 4; j++)
         {
             if (G->players[j].spawned)
@@ -1408,7 +1382,7 @@ void client_loop(game *G)
 {
     int i, nbytes, timer, delta;
     short buffer[6];
-    short down_buf[16];
+    short down_buf[25];
     bool q = false;
 
     printf("client loop\n");
@@ -1458,6 +1432,8 @@ void client_loop(game *G)
         }
         else
         {
+            client_sync(G, down_buf);
+
             for (i = 0; i < 4; i++)
             {
                 if (G->players[i].nid != 0) 
@@ -1470,7 +1446,6 @@ void client_loop(game *G)
                         && G->c_player == NULL)
                         {
                             G->c_player = &G->players[i];
-                            G->c_player->ready = true;
                             G->state = PLAY;
                         }
                         G->players[i].nid = down_buf[(i * NW_P_SIZE)];
@@ -1509,18 +1484,23 @@ void c_player_update(game *G, int i, short *buffer)
     G->players[i].nextmove.y = buffer[(i * NW_P_SIZE) + 2];
     G->players[i].nextmove.attacking = buffer[(i * NW_P_SIZE) + 3];
     G->players[i].nextmove.atk_counter = buffer[(i * NW_P_SIZE) + 4];
+    
+    if (G->c_player != &G->players[i]) 
+        G->players[i].ready = buffer[(i * NW_P_SIZE) + 5];
 }
 
 void h_player_update(short *buffer, player *players)
 {
+    /*
     buffer[N_P1] = players[PLAYER1].nid;
     buffer[N_P1+1] = players[PLAYER1].x;
     buffer[N_P1+2] = players[PLAYER1].y;
     buffer[N_P1+3] = players[PLAYER1].attacking;
     buffer[N_P1+4] = players[PLAYER1].atk_counter;
     buffer[N_P1+5] = players[PLAYER1].ready;
+    */
     
-    for (int i = 1; i < 4; i++)
+    for (int i = 0; i < 4; i++)
     {
         buffer[(i * NW_P_SIZE)] = players[i].nid;
         if (players[i].nid != 0)
@@ -1529,8 +1509,22 @@ void h_player_update(short *buffer, player *players)
             buffer[(i * NW_P_SIZE) + 2] = players[i].nextmove.y;
             buffer[(i * NW_P_SIZE) + 3] = players[i].nextmove.attacking;
             buffer[(i * NW_P_SIZE) + 4] = players[i].nextmove.atk_counter;
-            buffer[(i * NW_P_SIZE) + 4] = players[i].ready;
+            buffer[(i * NW_P_SIZE) + 5] = players[i].ready;
         }
+    }
+}
+
+void host_sync()
+{
+
+}
+
+void client_sync(game *G, short *buffer)
+{
+    if (buffer[N_P1+6])
+    {
+        G->s_cntdwn = true;
+        G->s_count = buffer[N_P1+6];
     }
 }
 
@@ -1588,10 +1582,40 @@ void host_countdown(game *G, int *winner)
             else G->g_message = "Draw!";
         }
     }
-
 }
 
 void client_countdown(game *G)
 {
+    char nmb;
 
+    if (G->g_cntdwn)
+    {
+        if (G->g_count[1] > 48) G->g_count[1]--;
+        else 
+        {
+            G->g_count[0]--;
+            G->g_count[1] = 57;
+        }
+
+        if (G->g_count[0] <= 48 && G->g_count[1] <= 48)
+        {
+            G->s_count = 53;
+            G->g_count[0] = 54;
+            G->g_count[1] = 57;
+            G->g_cntdwn = false;
+            G->g_done = true;
+        }
+    }
+    else if (G->s_cntdwn)
+    {
+        if (G->s_count <= 0) 
+        {
+            G->s_cntdwn = false;
+            G->g_cntdwn = true;
+        } 
+    }
+    else 
+    {
+
+    }
 }
