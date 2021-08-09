@@ -47,9 +47,9 @@ enum PlayerIndex
 enum N_PINDEX
 {
     N_P1,
-    N_P2 = 7,
-    N_P3 = 13,
-    N_P4 = 19
+    N_P2 = 8,
+    N_P3 = 14,
+    N_P4 = 20
 };
 
 enum P_PUSH_D
@@ -144,6 +144,7 @@ typedef struct player
 typedef struct game
 {
     char            g_winner[14], *g_message;
+    unsigned char   g_c_timer;
     SDL_Window      **window;
     SDL_Renderer    **renderer;
     Texture         *c_texture, *e_texture;
@@ -156,7 +157,7 @@ typedef struct game
     const char      *ip;
     unsigned char   state;
     char            g_count[3];
-    bool            running:1, s_cntdwn:1, 
+    bool            running:1, s_cntdwn:1, c_count_flag:1, 
                     g_cntdwn:1, g_done:1, g_ready:1, 
                     host:1, client:1, kill:1;
     char            s_count;

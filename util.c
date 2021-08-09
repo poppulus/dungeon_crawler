@@ -1213,7 +1213,7 @@ int connect_to_server(void *ptr)
     {
         printf("connected to the server..\n");
 
-        short buffer[5];
+        short buffer[6];
 
         // testing !!!
         G->c_player = NULL;
@@ -1245,7 +1245,7 @@ void host_loop(game *G)
         p, i, j, 
         fd_counter = 1, poll_count;
     short buffer[6];
-    short send_buf[25];
+    short send_buf[26];
     bool q = false;
 
     G->nw.pfds[0].fd = G->nw.sockfd;
@@ -1348,7 +1348,12 @@ void host_loop(game *G)
 
         // testing countdown
         if (G->s_cntdwn) send_buf[N_P1+6] = G->s_count;
-        else send_buf[N_P1+6] = 0;
+        else if (G->g_cntdwn) send_buf[N_P1+7] = G->g_c_timer;
+        else 
+        {
+            send_buf[N_P1+6] = 0;
+            send_buf[N_P1+7] = 0;
+        }
         //
 
         for (j = 1; j < 4; j++)
@@ -1382,10 +1387,13 @@ void client_loop(game *G)
 {
     int i, nbytes, timer, delta;
     short buffer[6];
-    short down_buf[25];
+    short down_buf[26];
     bool q = false;
 
     printf("client loop\n");
+
+    bzero(buffer, sizeof(buffer));
+    bzero(down_buf, sizeof(down_buf));
 
     while (!q && G->running && !G->kill)
     {
@@ -1521,10 +1529,27 @@ void host_sync()
 
 void client_sync(game *G, short *buffer)
 {
-    if (buffer[N_P1+6])
+    if (buffer[N_P1+7] > 0)
+    {
+        G->g_cntdwn = true;
+        if (buffer[N_P1+7] < G->g_c_timer) 
+        {
+            G->g_c_timer--;
+            G->c_count_flag = true;
+        }
+    }
+    else if (buffer[N_P1+6] > 0)
     {
         G->s_cntdwn = true;
-        G->s_count = buffer[N_P1+6];
+        if (buffer[N_P1+6] < G->s_count) G->s_count--;
+    } 
+    else 
+    {
+        G->c_count_flag = false;
+        G->g_cntdwn = false;
+        G->s_cntdwn = false;
+        G->g_c_timer = 60;
+        G->s_count = 53;
     }
 }
 
@@ -1540,7 +1565,7 @@ void host_countdown(game *G, int *winner)
         }
         else 
         {
-            G->rules.g_timer = 600;
+            G->rules.g_timer = 3600;
             G->s_cntdwn = false;
             G->g_cntdwn = true;
         }
@@ -1552,6 +1577,7 @@ void host_countdown(game *G, int *winner)
         {
             if (G->rules.g_timer % 60 == 0) 
             {
+                G->g_c_timer--;
                 if (G->g_count[1] > 48) G->g_count[1]--;
                 else 
                 {
@@ -1562,6 +1588,7 @@ void host_countdown(game *G, int *winner)
         }
         else 
         {
+            G->g_c_timer = 60;
             G->s_count = 53;
             G->rules.g_timer = 300;
             G->g_count[0] = 54;
@@ -1586,19 +1613,22 @@ void host_countdown(game *G, int *winner)
 
 void client_countdown(game *G)
 {
-    char nmb;
-
     if (G->g_cntdwn)
     {
-        if (G->g_count[1] > 48) G->g_count[1]--;
-        else 
+        if (G->c_count_flag)
         {
-            G->g_count[0]--;
-            G->g_count[1] = 57;
+            if (G->g_count[1] > 48) G->g_count[1]--;
+            else 
+            {
+                G->g_count[0]--;
+                G->g_count[1] = 57;
+            }
+            G->c_count_flag = false;
         }
 
         if (G->g_count[0] <= 48 && G->g_count[1] <= 48)
         {
+            G->g_c_timer = 60;
             G->s_count = 53;
             G->g_count[0] = 54;
             G->g_count[1] = 57;
@@ -1608,14 +1638,10 @@ void client_countdown(game *G)
     }
     else if (G->s_cntdwn)
     {
-        if (G->s_count <= 0) 
+        if (G->s_count <= 48) 
         {
             G->s_cntdwn = false;
             G->g_cntdwn = true;
         } 
-    }
-    else 
-    {
-
     }
 }
