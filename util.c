@@ -125,12 +125,20 @@ void freeTexture(Texture *text)
 
 int sortfunc(const void *a, const void *b)
 {
-    return *(int*)a - *(int*)b;
+    return (*(int*)a - *(int*)b);
 }
 
 int r_sortfunc(const void *a, const void *b)
 {
-    return *(int*)b - *(int*)a;
+    /*
+    int i = *(int*)a, 
+        j = *(int*)b;
+
+    if (i < j) return -1;
+    else if (i > j) return 1;
+    return 0;
+    */
+    return (*(int*)a < *(int*)b) - (*(int*)a > *(int*)b);
 }
 
 // game stuff
@@ -998,26 +1006,31 @@ void setRenderOrder(game G)    // kind of slow?
 
 int decideWinner(game G)
 {
-    unsigned short i, order[4];
+    int i, 
+        order[4] = {
+            G.rules.p1_score, 
+            G.rules.p2_score, 
+            G.rules.p3_score, 
+            G.rules.p4_score
+        };
 
-    for (i = 0; i < 4; i++)
-    {
-        switch (i)
-        {
-            case 0: order[i] = G.rules.p1_score; break;
-            case 1: order[i] = G.rules.p2_score; break;
-            case 2: order[i] = G.rules.p3_score; break;
-            case 3: order[i] = G.rules.p4_score; break;
-        }
-    }
+    printf("\n - NOT sorted - \n");
 
-    qsort(order, 4, sizeof(short), r_sortfunc);
+    for (i = 0; i < 4; i++) printf("%d ", order[i]);
 
-    if (order[0] == 0) return 0;
-    else if (order[0] == G.rules.p1_score) return 1;
-    else if (order[0] == G.rules.p2_score) return 2;
-    else if (order[0] == G.rules.p3_score) return 3;
-    else if (order[0] == G.rules.p4_score) return 4;
+    qsort(order, 4, 4, sortfunc);
+
+    printf("\n - sorted - \n");
+
+    for (i = 0; i < 4; i++) printf("%d ", order[i]);
+
+    printf("\n");
+
+    if (order[3] == 0) return 0;
+    else if (order[3] == G.rules.p1_score) return 1;
+    else if (order[3] == G.rules.p2_score) return 2;
+    else if (order[3] == G.rules.p3_score) return 3;
+    else if (order[3] == G.rules.p4_score) return 4;
 
     return 0;
 }
@@ -1070,6 +1083,25 @@ void drawMapTiles(game G, SDL_Rect *block, unsigned char (*map_blocks)[32])
                 SDL_RenderDrawRect(*G.renderer, block);
             }
         }
+    }
+}
+
+void drawReadyText(game G, int r)
+{
+    switch (r)
+    {
+        case 0:
+            FC_Draw(G.font, *G.renderer, 20, 40, "Ready!");
+        break;
+        case 1:
+            FC_Draw(G.font, *G.renderer, W_WIDTH - 100, 40, "Ready!");
+        break;
+        case 2:
+            FC_Draw(G.font, *G.renderer, 20, W_HEIGHT - 60, "Ready!");
+        break;
+        case 3:
+            FC_Draw(G.font, *G.renderer, W_WIDTH - 100, W_HEIGHT - 60, "Ready!");
+        break;
     }
 }
 
@@ -1245,7 +1277,7 @@ void host_loop(game *G)
         p, i, j, 
         fd_counter = 1, poll_count;
     short buffer[6];
-    short send_buf[26];
+    short send_buf[27];
     bool q = false;
 
     G->nw.pfds[0].fd = G->nw.sockfd;
@@ -1347,12 +1379,14 @@ void host_loop(game *G)
         h_player_update(send_buf, G->players);
 
         // testing countdown
-        if (G->s_cntdwn) send_buf[N_P1+6] = G->s_count;
-        else if (G->g_cntdwn) send_buf[N_P1+7] = G->g_c_timer;
+        if (G->s_cntdwn) send_buf[NW_S_COUNT] = G->s_count;
+        else if (G->g_cntdwn) send_buf[NW_G_COUNT] = G->g_c_timer;
+        else if (G->g_done) send_buf[NW_G_END] = 1;
         else 
         {
-            send_buf[N_P1+6] = 0;
-            send_buf[N_P1+7] = 0;
+            send_buf[NW_S_COUNT] = 0;
+            send_buf[NW_G_COUNT] = 0;
+            send_buf[NW_G_END] = 0;
         }
         //
 
@@ -1387,13 +1421,10 @@ void client_loop(game *G)
 {
     int i, nbytes, timer, delta;
     short buffer[6];
-    short down_buf[26];
+    short down_buf[27];
     bool q = false;
 
     printf("client loop\n");
-
-    bzero(buffer, sizeof(buffer));
-    bzero(down_buf, sizeof(down_buf));
 
     while (!q && G->running && !G->kill)
     {
@@ -1499,16 +1530,14 @@ void c_player_update(game *G, int i, short *buffer)
 
 void h_player_update(short *buffer, player *players)
 {
-    /*
     buffer[N_P1] = players[PLAYER1].nid;
     buffer[N_P1+1] = players[PLAYER1].x;
     buffer[N_P1+2] = players[PLAYER1].y;
     buffer[N_P1+3] = players[PLAYER1].attacking;
     buffer[N_P1+4] = players[PLAYER1].atk_counter;
     buffer[N_P1+5] = players[PLAYER1].ready;
-    */
     
-    for (int i = 0; i < 4; i++)
+    for (int i = 1; i < 4; i++)
     {
         buffer[(i * NW_P_SIZE)] = players[i].nid;
         if (players[i].nid != 0)
@@ -1529,20 +1558,32 @@ void host_sync()
 
 void client_sync(game *G, short *buffer)
 {
-    if (buffer[N_P1+7] > 0)
+    if (buffer[NW_G_COUNT] > 0)
     {
         G->g_cntdwn = true;
-        if (buffer[N_P1+7] < G->g_c_timer) 
+        if (buffer[NW_G_COUNT] < G->g_c_timer) 
         {
             G->g_c_timer--;
             G->c_count_flag = true;
         }
     }
-    else if (buffer[N_P1+6] > 0)
+    else if (buffer[NW_S_COUNT] > 0)
     {
         G->s_cntdwn = true;
-        if (buffer[N_P1+6] < G->s_count) G->s_count--;
+        if (buffer[NW_S_COUNT] < G->s_count) G->s_count--;
     } 
+    else if (buffer[NW_G_END] > 0 && !G->g_done)
+    {
+        G->g_c_timer = 60;
+        G->s_count = 53;
+
+        G->g_count[0] = 54;
+        G->g_count[1] = 57;
+
+        G->c_count_flag = false;
+        G->g_cntdwn = false;
+        G->g_done = true;
+    }
     else 
     {
         G->c_count_flag = false;
@@ -1565,7 +1606,7 @@ void host_countdown(game *G, int *winner)
         }
         else 
         {
-            G->rules.g_timer = 3600;
+            G->rules.g_timer = 600;
             G->s_cntdwn = false;
             G->g_cntdwn = true;
         }
@@ -1594,7 +1635,6 @@ void host_countdown(game *G, int *winner)
             G->g_count[0] = 54;
             G->g_count[1] = 57;
             G->g_cntdwn = false;
-
             G->g_done = true;
 
             // decide the winner, or a draw
@@ -1611,8 +1651,9 @@ void host_countdown(game *G, int *winner)
     }
 }
 
-void client_countdown(game *G)
+void client_countdown(game *G, int *winner)
 {
+    char nmb;
     if (G->g_cntdwn)
     {
         if (G->c_count_flag)
@@ -1643,5 +1684,18 @@ void client_countdown(game *G)
             G->s_cntdwn = false;
             G->g_cntdwn = true;
         } 
+    }
+    else if (G->g_done)
+    {
+        // decide the winner, or a draw
+        *winner = decideWinner(*G);
+
+        if (winner > 0)
+        {
+            nmb = (*winner) + 48;
+            G->g_winner[6] = nmb;
+            G->g_message = G->g_winner;
+        }
+        else G->g_message = "Draw!";
     }
 }

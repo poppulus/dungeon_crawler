@@ -42,6 +42,10 @@ int main(int argc, char const *argv[])
         .c_player = NULL,
         .nw.pfds = malloc(sizeof(*GAME.nw.pfds) * 4),
         .rules.g_timer = 300,
+        .rules.p1_score = 0,
+        .rules.p2_score = 0,
+        .rules.p3_score = 0,
+        .rules.p4_score = 0,
         .rules.p1_buf = {48, 48, 48, '\0'},
         .rules.p2_buf = {48, 48, 48, '\0'},
         .rules.p3_buf = {48, 48, 48, '\0'},
@@ -76,7 +80,7 @@ int main(int argc, char const *argv[])
 
                 // check game rule timers
                 if (GAME.host) host_countdown(&GAME, &winner);
-                else if (GAME.client) client_countdown(&GAME);
+                else if (GAME.client) client_countdown(&GAME, &winner);
 
                 // clear renderer
                 SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
@@ -126,24 +130,7 @@ int main(int argc, char const *argv[])
                                 FC_Draw(GAME.font, renderer, 320, 20, &GAME.s_count);
                                 for (int r = 0; r < 4; r++)
                                 {
-                                    if (GAME.players[r].ready)
-                                    {
-                                        switch (r)
-                                        {
-                                            case 0:
-                                                FC_Draw(GAME.font, renderer, 20, 40, "Ready!");
-                                            break;
-                                            case 1:
-                                                FC_Draw(GAME.font, renderer, W_WIDTH - 60, 40, "Ready!");
-                                            break;
-                                            case 2:
-                                                FC_Draw(GAME.font, renderer, 20, W_HEIGHT - 60, "Ready!");
-                                            break;
-                                            case 3:
-                                                FC_Draw(GAME.font, renderer, W_WIDTH - 60, W_HEIGHT - 60, "Ready!");
-                                            break;
-                                        }
-                                    }
+                                    if (GAME.players[r].ready) drawReadyText(GAME, r);
                                 }
                             }
                             else if (GAME.g_done) 
@@ -155,47 +142,27 @@ int main(int argc, char const *argv[])
                             {
                                 for (int r = 0; r < 4; r++)
                                 {
-                                    if (GAME.players[r].ready)
+                                    if (GAME.players[r].ready) drawReadyText(GAME, r);
+                                    
+                                    // draw player cubes, do i want them even?
+                                    switch (r)
                                     {
-                                        switch (r)
-                                        {
-                                            case 0:
-                                                FC_Draw(GAME.font, renderer, 20, 40, "Ready!");
-                                            break;
-                                            case 1:
-                                                FC_Draw(GAME.font, renderer, W_WIDTH - 60, 40, "Ready!");
-                                            break;
-                                            case 2:
-                                                FC_Draw(GAME.font, renderer, 20, W_HEIGHT - 60, "Ready!");
-                                            break;
-                                            case 3:
-                                                FC_Draw(GAME.font, renderer, W_WIDTH - 60, W_HEIGHT - 60, "Ready!");
-                                            break;
-                                        }
+                                        case 0: 
+                                            SDL_SetRenderDrawColor(renderer, 0x00, 0xaa, 0xff, 0xff); 
+                                        break;
+                                        case 1: 
+                                            SDL_SetRenderDrawColor(renderer, 0xaa, 0xff, 0x00, 0xff); 
+                                        break;
+                                        case 2:
+                                            SDL_SetRenderDrawColor(renderer, 0xff, 0xaa, 0x00, 0xff); 
+                                        break;
+                                        case 3: 
+                                            SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xaa, 0xff);
+                                        break;
                                     }
+                                    SDL_RenderFillRect(renderer, &GAME.players[r].cube.rect);
                                 }
                             }
-                        }
-                        
-                        // draw player cubes
-                        for (int i = 0; i < 4; i++)
-                        {
-                            switch (i)
-                            {
-                                case 0: 
-                                    SDL_SetRenderDrawColor(renderer, 0x00, 0xaa, 0xff, 0xff); 
-                                break;
-                                case 1: 
-                                    SDL_SetRenderDrawColor(renderer, 0xaa, 0xff, 0x00, 0xff); 
-                                break;
-                                case 2:
-                                    SDL_SetRenderDrawColor(renderer, 0xff, 0xaa, 0x00, 0xff); 
-                                break;
-                                case 3: 
-                                    SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xaa, 0xff);
-                                break;
-                            }
-                            SDL_RenderFillRect(renderer, &GAME.players[i].cube.rect);
                         }
 
                         setRenderOrder(GAME);

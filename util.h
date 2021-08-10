@@ -18,7 +18,11 @@
 #define ATTACK 4
 
 #define T_SIZE 20
-#define NW_P_SIZE 5
+#define NW_P_SIZE 6
+
+#define NW_S_COUNT 24
+#define NW_G_COUNT 25
+#define NW_G_END 26
 
 enum TileColor
 {
@@ -47,9 +51,9 @@ enum PlayerIndex
 enum N_PINDEX
 {
     N_P1,
-    N_P2 = 8,
-    N_P3 = 14,
-    N_P4 = 20
+    N_P2 = 6,
+    N_P3 = 12,
+    N_P4 = 18
 };
 
 enum P_PUSH_D
@@ -201,6 +205,7 @@ void renderPlayer(game, player *);
 void setRenderOrder(game);
 void renderScore(game);
 void drawMapTiles(game G, SDL_Rect *block, unsigned char (*map_blocks)[]);
+void drawReadyText(game G, int r);
 
 int decideWinner(game);
 void resetTimer(game *);
@@ -222,4 +227,4 @@ void host_sync();
 void client_sync(game *G, short *buffer);
 
 void host_countdown(game *G, int *winner);
-void client_countdown(game *G);
+void client_countdown(game *G, int *winner);
