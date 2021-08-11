@@ -147,6 +147,7 @@ typedef struct player
 
 typedef struct game
 {
+    unsigned char   (*g_board)[];
     char            g_winner[14], *g_message;
     unsigned char   g_c_timer;
     SDL_Window      **window;
@@ -208,7 +209,14 @@ void drawMapTiles(game G, SDL_Rect *block, unsigned char (*map_blocks)[]);
 void drawReadyText(game G, int r);
 
 int decideWinner(game);
+
 void resetTimer(game *);
+void resetScore(g_rules *);
+void resetScoreBuffer(char []);
+
+void resetPlayers(player []);
+void resetPlayerTimers(player *);
+void resetPlayerState(player *);
 
 void enqueue(unsigned char *q, unsigned char val);
 void dequeue(unsigned char *q, unsigned char val);

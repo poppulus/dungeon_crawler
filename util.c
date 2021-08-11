@@ -346,7 +346,7 @@ bool checkPlayerReady(player *p)
     for (i = 0; i < 4; i++) 
         if (p[i].spawned && p[i].ready) m++;
     
-    if (m == n && (m > 0 && n > 0)) return true;
+    if (m == n && (m > 1 && n > 1)) return true;
 
     return false;
 }
@@ -403,7 +403,7 @@ void playInput(SDL_Event e, game *g)
                     case SDLK_RETURN:
                     case SDLK_RETURN2:
                     case SDLK_KP_ENTER:
-                        if (!g->g_cntdwn && (g->host || g->client)) 
+                        if (!g->g_cntdwn && !g->g_done && (g->host || g->client)) 
                             g->c_player->ready = !g->c_player->ready;
                     break;
                     case SDLK_SPACE:
@@ -479,22 +479,26 @@ void initPlayers(player p[4])
         switch (i)
         {
             case 0:
+                p[i].x = 10;
+                p[i].y = 10;
                 p[i].cube.rect.x = 30;
                 p[i].cube.rect.y = 30;
             break;
             case 1: 
-                p[i].x = W_WIDTH - 1;
+                p[i].x = W_WIDTH - 10;
+                p[i].y = 10;
                 p[i].cube.rect.x = W_WIDTH - 50;
                 p[i].cube.rect.y = 30;
             break;
             case 2: 
-                p[i].y = W_HEIGHT - 1;
+                p[i].x = 10;
+                p[i].y = W_HEIGHT - 10;
                 p[i].cube.rect.x = 30;
                 p[i].cube.rect.y = W_HEIGHT - 50;
             break;
             case 3:
-                p[i].x = W_WIDTH - 1;
-                p[i].y = W_HEIGHT - 1;
+                p[i].x = W_WIDTH - 10;
+                p[i].y = W_HEIGHT - 10;
                 p[i].cube.rect.x = W_WIDTH - 50;
                 p[i].cube.rect.y = W_HEIGHT - 50;
             break;
@@ -1014,25 +1018,17 @@ int decideWinner(game G)
             G.rules.p4_score
         };
 
-    printf("\n - NOT sorted - \n");
+    qsort(order, 4, sizeof(int), sortfunc);
 
-    for (i = 0; i < 4; i++) printf("%d ", order[i]);
-
-    qsort(order, 4, 4, sortfunc);
-
-    printf("\n - sorted - \n");
-
-    for (i = 0; i < 4; i++) printf("%d ", order[i]);
-
-    printf("\n");
-
-    if (order[3] == 0) return 0;
+    if (order[3] == order[2] 
+    || order[3] == order[1] 
+    || order[3] == order[0]) return 0;
     else if (order[3] == G.rules.p1_score) return 1;
     else if (order[3] == G.rules.p2_score) return 2;
     else if (order[3] == G.rules.p3_score) return 3;
     else if (order[3] == G.rules.p4_score) return 4;
 
-    return 0;
+    return -1;
 }
 
 void resetTimer(game *G)
@@ -1041,6 +1037,89 @@ void resetTimer(game *G)
     G->s_count = 53;
     G->g_count[0] = 54;
     G->g_count[1] = 48;
+}
+
+void resetScore(g_rules *r) // make this complete !!!
+{
+    for (int i = 0; i < 4; i++)
+    {
+        switch (i)
+        {
+            case 0: resetScoreBuffer(r->p1_buf); break;
+            case 1: resetScoreBuffer(r->p2_buf); break;
+            case 2: resetScoreBuffer(r->p3_buf); break;
+            case 3: resetScoreBuffer(r->p4_buf); break;
+        }
+    }
+    
+    r->p1_score = 0;
+    r->p2_score = 0;
+    r->p3_score = 0;
+    r->p4_score = 0;
+}
+
+void resetScoreBuffer(char b[])
+{
+    b[0] = 48;
+    b[1] = 48;
+    b[2] = 48;
+    b[3] = '\0';
+}
+
+void resetPlayers(player p[])
+{
+    for (int i = 0; i < 4; i++)
+    {
+        bzero(&p[i].nextmove, sizeof(p_next));
+        p[i].face = 0;
+        p[i].dir = 0; 
+        p[i].p_dir = 0;
+        p[i].xvel = 0; 
+        p[i].yvel = 0;
+        switch (i)
+        {
+            case 0: 
+                p[i].x = 10; 
+                p[i].y = 10;
+            break;
+            case 1: 
+                p[i].x = W_WIDTH - 10; 
+                p[i].y = 10;
+            break;
+            case 2: 
+                p[i].x = 10;
+                p[i].y = W_HEIGHT - 10; 
+            break;
+            case 3: 
+                p[i].x = W_WIDTH - 10; 
+                p[i].y = W_HEIGHT - 10;
+            break;
+        }
+        resetPlayerTimers(&p[i]);
+        resetPlayerState(&p[i]);
+    }
+}
+
+void resetPlayerTimers(player *p)
+{
+    for (int i = 0; i < Q_SIZE; i++) 
+        p->i_queue[i] = 0;
+    
+    p->acounter = 0; 
+    p->aindex = 0;
+    p->atk_counter = 0;
+    p->hurt_counter = 0;
+    p->push_counter = 0;
+}
+
+void resetPlayerState(player *p)
+{
+    p->blocked = false; 
+    p->attacking = false; 
+    p->a_hold = false; 
+    p->sprint = false; 
+    p->ready = false; 
+    p->hurt = false;
 }
 
 void renderScore(game G)
@@ -1572,31 +1651,24 @@ void client_sync(game *G, short *buffer)
         G->s_cntdwn = true;
         if (buffer[NW_S_COUNT] < G->s_count) G->s_count--;
     } 
-    else if (buffer[NW_G_END] > 0 && !G->g_done)
+    else if (buffer[NW_G_END] > 0 && !G->g_done) G->g_done = true;
+    else if (buffer[NW_G_END] == 0 && G->g_done) 
     {
-        G->g_c_timer = 60;
-        G->s_count = 53;
-
-        G->g_count[0] = 54;
-        G->g_count[1] = 57;
-
-        G->c_count_flag = false;
-        G->g_cntdwn = false;
-        G->g_done = true;
+        G->g_done = false;
+        bzero(G->g_board, 32*24);
+        resetPlayers(G->players);
+        resetScore(&G->rules);
     }
     else 
     {
-        G->c_count_flag = false;
-        G->g_cntdwn = false;
         G->s_cntdwn = false;
-        G->g_c_timer = 60;
+        G->g_cntdwn = false;
         G->s_count = 53;
     }
 }
 
 void host_countdown(game *G, int *winner)
 {
-    char nmb;
     if (G->s_cntdwn) 
     {
         G->rules.g_timer--;
@@ -1629,31 +1701,43 @@ void host_countdown(game *G, int *winner)
         }
         else 
         {
+            resetTimer(G);
             G->g_c_timer = 60;
-            G->s_count = 53;
-            G->rules.g_timer = 300;
-            G->g_count[0] = 54;
-            G->g_count[1] = 57;
             G->g_cntdwn = false;
             G->g_done = true;
 
             // decide the winner, or a draw
             *winner = decideWinner(*G);
 
-            if (winner > 0)
+            if (*winner > 0)
             {
-                nmb = (*winner) + 48;
-                G->g_winner[6] = nmb;
+                G->g_winner[6] = (*winner) + 48;
                 G->g_message = G->g_winner;
             }
-            else G->g_message = "Draw!";
+            else G->g_message = "    Draw!    ";
+        }
+    }
+    else if (G->g_done)
+    {
+        G->rules.g_timer--;
+        if (G->rules.g_timer > 0) 
+        {
+            if (G->rules.g_timer % 60 == 0) G->s_count--;
+        }
+        else 
+        {
+            G->rules.g_timer = 300;
+            G->s_count = 53;
+            G->g_done = false;
+            bzero(G->g_board, 32*24);
+            resetPlayers(G->players);
+            resetScore(&G->rules);
         }
     }
 }
 
 void client_countdown(game *G, int *winner)
 {
-    char nmb;
     if (G->g_cntdwn)
     {
         if (G->c_count_flag)
@@ -1666,36 +1750,25 @@ void client_countdown(game *G, int *winner)
             }
             G->c_count_flag = false;
         }
+        else 
+        {
+            if (G->g_done)
+            {
+                resetTimer(G);
+                G->g_c_timer = 60;
+                G->g_cntdwn = false;
+                G->s_cntdwn = false;
 
-        if (G->g_count[0] <= 48 && G->g_count[1] <= 48)
-        {
-            G->g_c_timer = 60;
-            G->s_count = 53;
-            G->g_count[0] = 54;
-            G->g_count[1] = 57;
-            G->g_cntdwn = false;
-            G->g_done = true;
-        }
-    }
-    else if (G->s_cntdwn)
-    {
-        if (G->s_count <= 48) 
-        {
-            G->s_cntdwn = false;
-            G->g_cntdwn = true;
-        } 
-    }
-    else if (G->g_done)
-    {
-        // decide the winner, or a draw
-        *winner = decideWinner(*G);
+                // decide the winner, or a draw
+                *winner = decideWinner(*G);
 
-        if (winner > 0)
-        {
-            nmb = (*winner) + 48;
-            G->g_winner[6] = nmb;
-            G->g_message = G->g_winner;
+                if (*winner > 0)
+                {
+                    G->g_winner[6] = (*winner) + 48;
+                    G->g_message = G->g_winner;
+                }
+                else G->g_message = "    Draw!    ";
+            }
         }
-        else G->g_message = "Draw!";
     }
 }

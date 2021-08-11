@@ -21,6 +21,7 @@ int main(int argc, char const *argv[])
     };
 
     game GAME = {
+        .g_board = &map_blocks[0],
         .window = &window,
         .renderer = &renderer,
         .c_texture = &c_texture,
@@ -144,7 +145,8 @@ int main(int argc, char const *argv[])
                                 {
                                     if (GAME.players[r].ready) drawReadyText(GAME, r);
                                     
-                                    // draw player cubes, do i want them even?
+                                    // draw player cubes, do i even want them?
+                                    /*
                                     switch (r)
                                     {
                                         case 0: 
@@ -161,6 +163,7 @@ int main(int argc, char const *argv[])
                                         break;
                                     }
                                     SDL_RenderFillRect(renderer, &GAME.players[r].cube.rect);
+                                    */
                                 }
                             }
                         }
