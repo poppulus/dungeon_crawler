@@ -13,14 +13,8 @@ int main(int argc, char const *argv[])
 
     unsigned char map_blocks[24][32];
 
-    SDL_Rect block = {
-        .w = 20,
-        .h = 20,
-        .x = 0,
-        .y = 0
-    };
-
     game GAME = {
+        .g_r_block = {.w = 20, .h = 20, .x = 0, .y = 0},
         .g_board = &map_blocks[0],
         .window = &window,
         .renderer = &renderer,
@@ -41,7 +35,7 @@ int main(int argc, char const *argv[])
         .s_count = 53,
         .g_c_timer = 60,
         .c_player = NULL,
-        .nw.pfds = malloc(sizeof(*GAME.nw.pfds) * 4),
+        .nw.pfds = malloc(sizeof(struct pollfd) * 4),
         .rules.g_timer = 300,
         .rules.p1_score = 0,
         .rules.p2_score = 0,
@@ -91,6 +85,7 @@ int main(int argc, char const *argv[])
                 {
                     case MENU:
                         menuInput(e, &GAME, &nw_thread);
+                        renderMenu(GAME);
                     break;
                     case HOST:
                     break;
@@ -114,65 +109,20 @@ int main(int argc, char const *argv[])
                             }
                             
                             checkPlayerAtkCol(GAME.players);
-                            checkMapCollision(&GAME, &block, map_blocks);
+                            checkMapCollision(&GAME, &GAME.g_r_block, GAME.g_board);
 
+                            /* renders attacking hitbox
                             if (GAME.c_player->attacking) 
                             {
                                 SDL_SetRenderDrawColor(renderer, 0xff, 0x00, 0x00, 0xff);
                                 SDL_RenderFillRect(renderer, &GAME.c_player->a_hitBox);
                             }
-
-                            FC_Draw(GAME.font, renderer, 320, 20, GAME.g_count);
-                        }
-                        else 
-                        {
-                            if (GAME.s_cntdwn) 
-                            {
-                                FC_Draw(GAME.font, renderer, 320, 20, &GAME.s_count);
-                                for (int r = 0; r < 4; r++)
-                                {
-                                    if (GAME.players[r].ready) drawReadyText(GAME, r);
-                                }
-                            }
-                            else if (GAME.g_done) 
-                            {
-                                drawMapTiles(GAME, &block, map_blocks);
-                                FC_Draw(GAME.font, renderer, 220, 200, GAME.g_message);
-                            }
-                            else 
-                            {
-                                for (int r = 0; r < 4; r++)
-                                {
-                                    if (GAME.players[r].ready) drawReadyText(GAME, r);
-                                    
-                                    // draw player cubes, do i even want them?
-                                    /*
-                                    switch (r)
-                                    {
-                                        case 0: 
-                                            SDL_SetRenderDrawColor(renderer, 0x00, 0xaa, 0xff, 0xff); 
-                                        break;
-                                        case 1: 
-                                            SDL_SetRenderDrawColor(renderer, 0xaa, 0xff, 0x00, 0xff); 
-                                        break;
-                                        case 2:
-                                            SDL_SetRenderDrawColor(renderer, 0xff, 0xaa, 0x00, 0xff); 
-                                        break;
-                                        case 3: 
-                                            SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xaa, 0xff);
-                                        break;
-                                    }
-                                    SDL_RenderFillRect(renderer, &GAME.players[r].cube.rect);
-                                    */
-                                }
-                            }
+                            */
                         }
 
-                        setRenderOrder(GAME);
+                        renderGame(GAME);
                     break;
                 }
-
-                renderScore(GAME);
 
                 // put it all on screen
                 SDL_RenderPresent(renderer);

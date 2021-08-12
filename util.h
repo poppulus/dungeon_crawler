@@ -147,6 +147,7 @@ typedef struct player
 
 typedef struct game
 {
+    SDL_Rect        g_r_block;
     unsigned char   (*g_board)[];
     char            g_winner[14], *g_message;
     unsigned char   g_c_timer;
@@ -197,6 +198,9 @@ void addPlayerScore(char *);
 void subPlayerScore(char *);
 
 void setMapTColor(SDL_Renderer *r, player p);
+
+void renderMenu(game);
+void renderGame(game);
 
 void animatePlayer(player *);
 void playerWalking(void);

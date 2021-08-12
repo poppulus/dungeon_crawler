@@ -183,11 +183,8 @@ bool collision(SDL_Rect a, SDL_Rect b)
         bottomB = b.y + b.h;
 
     if(bottomA <= topB) return false;
-
     if(topA >= bottomB) return false;
-
     if(rightA <= leftB) return false;
-
     if(leftA >= rightB) return false;
 
     return true;
@@ -209,7 +206,11 @@ void checkMapCollision(game *G, SDL_Rect *block, unsigned char (*map_blocks)[32]
             {
                 if (G->players[i].spawned)
                 {
-                    SDL_Rect plr = {.x = G->players[i].x, .y = G->players[i].y, .w = 1, .h = 1};
+                    SDL_Rect plr = {
+                        .x = G->players[i].x, 
+                        .y = G->players[i].y, 
+                        .w = 1, 
+                        .h = 1};
 
                     if (collision(*block, plr) && (map_blocks[y][x] != (i + 1))) 
                     {
@@ -225,7 +226,6 @@ void checkMapCollision(game *G, SDL_Rect *block, unsigned char (*map_blocks)[32]
                                 }
                             }
                         }
-                    
                         if (!same)
                         {
                             switch (map_blocks[y][x])
@@ -272,23 +272,6 @@ void checkMapCollision(game *G, SDL_Rect *block, unsigned char (*map_blocks)[32]
                         }
                     }
                 }
-            }
-            if (map_blocks[y][x]) 
-            {
-                switch (map_blocks[y][x])
-                {
-                    case 1: SDL_SetRenderDrawColor(*G->renderer, 0x00, 0x00, 0xff, 0xff); 
-                    break;
-                    case 2: SDL_SetRenderDrawColor(*G->renderer, 0x00, 0xff, 0x00, 0xff); 
-                    break;
-                    case 3: SDL_SetRenderDrawColor(*G->renderer, 0xff, 0x00, 0x00, 0xff); 
-                    break;
-                    case 4: SDL_SetRenderDrawColor(*G->renderer, 0xff, 0xff, 0x00, 0xff); 
-                    break;
-                }
-                SDL_RenderFillRect(*G->renderer, block);
-                SDL_SetRenderDrawColor(*G->renderer, 0xee, 0xee, 0xee, 0xff);
-                SDL_RenderDrawRect(*G->renderer, block);
             }
         }
     }
@@ -362,6 +345,12 @@ void menuInput(SDL_Event e, game *g, thrd_t *nw_thread)
             case SDL_KEYDOWN:
                 switch (e.key.keysym.sym)
                 {
+                    case SDLK_RETURN:
+                    case SDLK_RETURN2:
+                    case SDLK_KP_ENTER:
+                        if (!g->g_cntdwn && !g->g_done && (g->host || g->client)) 
+                            g->c_player->ready = !g->c_player->ready;
+                    break;
                     case SDLK_h: 
                         if (!g->host && !g->client)
                         {
@@ -377,7 +366,7 @@ void menuInput(SDL_Event e, game *g, thrd_t *nw_thread)
                         }
                     break;
                     case SDLK_k:
-                        g->kill = true;
+                        if (g->host || g->client) g->kill = true;
                     break;
                     case SDLK_ESCAPE: g->running = false; break;
                 }
@@ -400,12 +389,6 @@ void playInput(SDL_Event e, game *g)
                         g->kill = true;
                     break;
                     case SDLK_ESCAPE: g->running = false; break;
-                    case SDLK_RETURN:
-                    case SDLK_RETURN2:
-                    case SDLK_KP_ENTER:
-                        if (!g->g_cntdwn && !g->g_done && (g->host || g->client)) 
-                            g->c_player->ready = !g->c_player->ready;
-                    break;
                     case SDLK_SPACE:
                         if (!e.key.repeat)
                         {
@@ -888,6 +871,66 @@ void setMapTColor(SDL_Renderer *r, player p)
     }
 }
 
+void renderMenu(game G)
+{
+    int r;
+    if (G.host || G.client)
+    {
+        if (G.s_cntdwn) 
+            FC_Draw(G.font, *G.renderer, 320, 20, &G.s_count);
+
+        for (r = 0; r < 4; r++) 
+            if (G.players[r].ready) drawReadyText(G, r);
+    }
+}
+
+void renderGame(game G)
+{
+    int r;
+    if (G.g_cntdwn)
+    {
+        drawMapTiles(G, &G.g_r_block, G.g_board);
+        FC_Draw(G.font, *G.renderer, 320, 20, G.g_count);
+        setRenderOrder(G);
+    }
+    else if (G.s_cntdwn) 
+        FC_Draw(G.font, *G.renderer, 320, 20, &G.s_count);
+    else if (G.g_done) 
+    {
+        drawMapTiles(G, &G.g_r_block, G.g_board);
+        FC_Draw(G.font, *G.renderer, 220, 200, G.g_message);
+    }
+    else 
+    {
+        /*
+        for (r = 0; r < 4; r++)
+        {
+            if (G.players[r].ready) drawReadyText(G, r);
+            
+            // draw player cubes, do i even want them?
+            switch (r)
+            {
+                case 0: 
+                    SDL_SetRenderDrawColor(renderer, 0x00, 0xaa, 0xff, 0xff); 
+                break;
+                case 1: 
+                    SDL_SetRenderDrawColor(renderer, 0xaa, 0xff, 0x00, 0xff); 
+                break;
+                case 2:
+                    SDL_SetRenderDrawColor(renderer, 0xff, 0xaa, 0x00, 0xff); 
+                break;
+                case 3: 
+                    SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xaa, 0xff);
+                break;
+            }
+            SDL_RenderFillRect(renderer, &GAME.players[r].cube.rect);
+        }
+        */
+    }
+    
+    renderScore(G);
+}
+
 void animatePlayer(player *p)
 {
     if (p->attacking)
@@ -1217,55 +1260,45 @@ int setup_server(void *ptr)
     // socket create and verification
     nw->sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-	if (nw->sockfd == -1) {
-		printf("socket creation failed...\n");
-        thrd_exit(1);
-	}
+	if (nw->sockfd == -1) printf("socket creation failed\n");
 	else
-		printf("Socket successfully created..\n");
+	{
+        printf("Socket successfully created\n");
 
-    if (setsockopt(nw->sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
-    {
-        perror("setsockopt(SO_REUSEADDR) failed");
-        thrd_exit(1);
+        if (setsockopt(nw->sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0) 
+            perror("setsockopt(SO_REUSEADDR) failed");
+        else
+        {
+             bzero(&nw->servaddr, sizeof(nw->servaddr));
+
+            // assign IP, PORT
+            nw->servaddr.sin_family = AF_INET;
+            nw->servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+            nw->servaddr.sin_port = htons(8008);
+
+            // Binding newly created socket to given IP and verification
+            if ((bind(nw->sockfd, (struct sockaddr*)&nw->servaddr, sizeof(nw->servaddr))) != 0) 
+                printf("socket bind failed\n");
+            else
+            {
+                printf("Socket successfully bound\n");
+                nw->addrlen = sizeof(nw->cli);
+
+                // Now server is ready to listen and verification
+                if ((listen(nw->sockfd, 10)) == -1) 
+                    perror("listen");
+                else
+                {
+                    printf("Server listening\n");
+                    // just for testing, it makes sense with player1 as the host though ...
+                    G->c_player = &G->players[PLAYER1];
+                    G->c_player->nid = nw->sockfd;
+                    G->c_player->spawned = true;
+                    host_loop(G);
+                }
+            }
+        }
     }
-
-    bzero(&nw->servaddr, sizeof(nw->servaddr));
-
-	// assign IP, PORT
-	nw->servaddr.sin_family = AF_INET;
-	nw->servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	nw->servaddr.sin_port = htons(8008);
-
-	// Binding newly created socket to given IP and verification
-	if ((bind(nw->sockfd, (struct sockaddr*)&nw->servaddr, sizeof(nw->servaddr))) != 0) {
-		printf("socket bind failed...\n");
-        thrd_exit(1);
-	}
-	else
-		printf("Socket successfully bound..\n");
-
-	nw->addrlen = sizeof(nw->cli);
-
-    // Now server is ready to listen and verification
-	if ((listen(nw->sockfd, 10)) == -1) {
-		perror("listen");
-        thrd_exit(1);
-	}
-	
-	printf("Server listening..\n");
-
-    // just for testing, it makes sense with player1 as the host though ...
-    G->c_player = &G->players[PLAYER1];
-    G->c_player->spawned = true;
-    G->c_player->nid = nw->sockfd;
-    G->state = PLAY;
-
-    host_loop(G);
-
-    G->state = MENU;
-    G->host = false;
-    G->kill = false;
 
 	// Accept the data packet from client and verification
     /*
@@ -1289,6 +1322,13 @@ int setup_server(void *ptr)
     */
 
     close(G->nw.sockfd);
+    close(G->nw.connfd);
+    bzero(G->nw.pfds, sizeof(struct pollfd) * 4);
+    
+    G->state = MENU;
+    G->host = false;
+    G->kill = false;
+    initPlayers(G->players);
 
     printf("host thread terminated\n");
     thrd_exit(0);
@@ -1302,47 +1342,45 @@ int connect_to_server(void *ptr)
 
     // socket create and varification
 	nw->sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (nw->sockfd == -1) {
-		printf("socket creation failed...\n");
-        thrd_exit(1);
-	}
+
+	if (nw->sockfd == -1) printf("socket creation failed\n");
 	else
-		printf("Socket successfully created..\n");
-
-	bzero(&nw->servaddr, sizeof(nw->servaddr));
-
-	// assign IP, PORT
-	nw->servaddr.sin_family = AF_INET;
-	nw->servaddr.sin_addr.s_addr = inet_addr(G->ip);
-	nw->servaddr.sin_port = htons(8008);
-
-    if (connect(nw->sockfd, (struct sockaddr*)&nw->servaddr, sizeof(nw->servaddr)) != 0) {
-		printf("connection with the server failed...\n");
-        thrd_exit(1);
-	}
-	else 
     {
-        printf("connected to the server..\n");
+        printf("Socket successfully created\n");
 
-        short buffer[6];
+        bzero(&nw->servaddr, sizeof(nw->servaddr));
 
-        // testing !!!
-        G->c_player = NULL;
+        // assign IP, PORT
+        nw->servaddr.sin_family = AF_INET;
+        nw->servaddr.sin_addr.s_addr = inet_addr(G->ip);
+        nw->servaddr.sin_port = htons(8008);
 
-        if (recv(G->nw.sockfd, buffer, sizeof(buffer), 0) == -1) 
-            perror("recv");
+        if (connect(nw->sockfd, (struct sockaddr*)&nw->servaddr, sizeof(nw->servaddr)) != 0) 
+            printf("connection with the server failed\n");
         else 
         {
-            G->nw.connfd = buffer[0];
-            client_loop(G);
+            printf("connected to the server\n");
+            short buffer[6];
+            // testing !!!
+            G->c_player = NULL;
+
+            if (recv(G->nw.sockfd, buffer, sizeof(buffer), 0) == -1) 
+                perror("recv");
+            else 
+            {
+                G->nw.connfd = buffer[0];
+                client_loop(G);
+            }
         }
     }
 
+    close(G->nw.sockfd);
+    close(G->nw.connfd);
+    
     G->state = MENU;
     G->client = false;
     G->kill = false;
-
-    close(G->nw.sockfd);
+    initPlayers(G->players);
 
     printf("client thread terminated\n");
     thrd_exit(0);
@@ -1364,7 +1402,7 @@ void host_loop(game *G)
 
     printf("host loop\n");
 
-    while (!q && G->running && !G->kill)
+    while (G->running && !q && !G->kill)
     {
         timer = SDL_GetTicks();
 
@@ -1373,7 +1411,7 @@ void host_loop(game *G)
         if (poll_count == -1)
         {
             perror("poll");
-            thrd_exit(1);
+            q = true;
         }
 
         for (p = 0; p < fd_counter; p++)
@@ -1392,18 +1430,19 @@ void host_loop(game *G)
                             perror("setsocket");
                         else
                         {
-                            printf("server acccepted the client...\n");
-                            G->nw.pfds[fd_counter].fd = G->nw.connfd;
-                            G->nw.pfds[fd_counter].events = POLLIN;
-
-                            selectPlayerSlot(G->players, G->nw.connfd);
+                            printf("server acccepted the client\n");
 
                             buffer[0] = G->nw.connfd;
 
                             if (send(G->nw.connfd, buffer, sizeof(buffer), 0) == -1) 
                                 perror("send");
-
-                            fd_counter++;
+                            else
+                            {
+                                G->nw.pfds[fd_counter].fd = G->nw.connfd;
+                                G->nw.pfds[fd_counter].events = POLLIN;
+                                fd_counter++;
+                                selectPlayerSlot(G->players, G->nw.connfd);
+                            }
                         }
                     }
                 }
@@ -1474,7 +1513,7 @@ void host_loop(game *G)
             if (G->players[j].spawned)
             {
                 if (send(G->players[j].nid, send_buf, sizeof(send_buf), 0) == -1) 
-                    perror("send");
+                  perror("send");
             }
         }
 
@@ -1505,7 +1544,7 @@ void client_loop(game *G)
 
     printf("client loop\n");
 
-    while (!q && G->running && !G->kill)
+    while (G->running && !q && !G->kill)
     {
         //timer = SDL_GetTicks();
 
@@ -1561,11 +1600,8 @@ void client_loop(game *G)
                     if (down_buf[(i * NW_P_SIZE)] != 0)
                     {
                         if (down_buf[(i * NW_P_SIZE)] == G->nw.connfd 
-                        && G->c_player == NULL)
-                        {
+                        && G->c_player == NULL) 
                             G->c_player = &G->players[i];
-                            G->state = PLAY;
-                        }
                         G->players[i].nid = down_buf[(i * NW_P_SIZE)];
                         G->players[i].spawned = true;
                     }
@@ -1639,6 +1675,7 @@ void client_sync(game *G, short *buffer)
 {
     if (buffer[NW_G_COUNT] > 0)
     {
+        G->state = PLAY;
         G->g_cntdwn = true;
         if (buffer[NW_G_COUNT] < G->g_c_timer) 
         {
@@ -1654,10 +1691,11 @@ void client_sync(game *G, short *buffer)
     else if (buffer[NW_G_END] > 0 && !G->g_done) G->g_done = true;
     else if (buffer[NW_G_END] == 0 && G->g_done) 
     {
-        G->g_done = false;
         bzero(G->g_board, 32*24);
         resetPlayers(G->players);
         resetScore(&G->rules);
+        G->state = MENU;
+        G->g_done = false;
     }
     else 
     {
@@ -1681,6 +1719,7 @@ void host_countdown(game *G, int *winner)
             G->rules.g_timer = 600;
             G->s_cntdwn = false;
             G->g_cntdwn = true;
+            G->state = PLAY;
         }
     }
     else if (G->g_cntdwn)
@@ -1726,12 +1765,13 @@ void host_countdown(game *G, int *winner)
         }
         else 
         {
-            G->rules.g_timer = 300;
-            G->s_count = 53;
-            G->g_done = false;
             bzero(G->g_board, 32*24);
             resetPlayers(G->players);
             resetScore(&G->rules);
+            G->rules.g_timer = 300;
+            G->s_count = 53;
+            G->state = MENU;
+            G->g_done = false;
         }
     }
 }
