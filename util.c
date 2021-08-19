@@ -334,14 +334,59 @@ bool checkPlayerReady(player *p)
     return false;
 }
 
+void hostInput(SDL_Event e, game *g)
+{
+    while (SDL_PollEvent(&e) != 0)
+    {
+        switch (e.type)
+        {
+            case SDL_QUIT: g->running = false; break;
+            case SDL_KEYDOWN:
+                switch (e.key.keysym.sym)
+                {
+                    case SDLK_RETURN:
+                    case SDLK_RETURN2:
+                    case SDLK_KP_ENTER:
+                        if (!g->g_cntdwn && !g->g_done) 
+                            g->c_player->ready = !g->c_player->ready;
+                    break;
+                    case SDLK_k: g->kill = true; break;
+                }
+            break;
+        }
+    }
+}
+
+void joinInput(SDL_Event e, game *g)
+{
+    while (SDL_PollEvent(&e) != 0)
+    {
+        switch (e.type)
+        {
+            case SDL_QUIT: g->running = false; break;
+            case SDL_KEYDOWN:
+                switch (e.key.keysym.sym)
+                {
+                    case SDLK_RETURN:
+                    case SDLK_RETURN2:
+                    case SDLK_KP_ENTER:
+                        if (!g->g_cntdwn && !g->g_done) 
+                            g->c_player->ready = !g->c_player->ready;
+                    break;
+                    case SDLK_k: g->kill = true; break;
+                }
+            break;
+        }
+    }
+}
+
 void menuInput(SDL_Event e, game *g, thrd_t *nw_thread)
 {
     while (SDL_PollEvent(&e) != 0)
     {
         switch (e.type)
         {
-            case SDL_QUIT: g->running = false; 
-            break;
+            case SDL_QUIT: g->running = false; break;
             case SDL_KEYDOWN:
                 switch (e.key.keysym.sym)
                 {
@@ -725,11 +770,12 @@ void updateOtherPlayer(player *p)
             {
                 if (p->nextmove.x > p->x) p->face = RIGHT;
                 else if (p->nextmove.x < p->x) p->face = LEFT;
-                
+
                 if (((p->nextmove.x == p->x + 1) 
                 || (p->nextmove.x == p->x - 1)) 
                 && (p->acounter % 8 == 0))
                 {
+                    p->sprint = false;
                     p->aindex++;
                     p->aindex = (p->aindex % 2) + 2;
                 }
@@ -737,6 +783,7 @@ void updateOtherPlayer(player *p)
                 || (p->nextmove.x == p->x - 2)) 
                 && (p->acounter % 6 == 0))
                 {
+                    p->sprint = true;
                     p->aindex++;
                     p->aindex = (p->aindex % 2) + 2;
                 }
@@ -750,6 +797,7 @@ void updateOtherPlayer(player *p)
                 || (p->nextmove.y == p->y - 1)) 
                 && (p->acounter % 8 == 0))
                 {
+                    p->sprint = false;
                     p->aindex++;
                     p->aindex = (p->aindex % 2) + 2;
                 }
@@ -757,6 +805,7 @@ void updateOtherPlayer(player *p)
                 || (p->nextmove.y == p->y - 2)) 
                 && (p->acounter % 6 == 0))
                 {
+                    p->sprint = true;
                     p->aindex++;
                     p->aindex = (p->aindex % 2) + 2;
                 }
@@ -770,11 +819,14 @@ void updateOtherPlayer(player *p)
                 }
             }
         }
-        //
+        if (p->face == LEFT) p->c_index = 14 + p->aindex;
+        else p->c_index = (p->face * 7) + p->aindex;
 
+        p->f_flip = (p->face == LEFT ? true : false);
         p->attacking = p->nextmove.attacking;
         p->atk_counter = p->nextmove.atk_counter;
-
+        p->xvel = p->nextmove.x - p->x;
+        p->yvel = p->nextmove.y - p->y;
         p->x = p->nextmove.x;
         p->y = p->nextmove.y;
     }
@@ -871,42 +923,27 @@ void setMapTColor(SDL_Renderer *r, player p)
     }
 }
 
-void renderMenu(game G)
+void renderGame(game *G)
 {
     int r;
-    if (G.host || G.client)
+    if (G->g_cntdwn)
     {
-        if (G.s_cntdwn) 
-            FC_Draw(G.font, *G.renderer, 320, 20, &G.s_count);
-
-        for (r = 0; r < 4; r++) 
-            if (G.players[r].ready) drawReadyText(G, r);
-    }
-}
-
-void renderGame(game G)
-{
-    int r;
-    if (G.g_cntdwn)
-    {
-        drawMapTiles(G, &G.g_r_block, G.g_board);
-        FC_Draw(G.font, *G.renderer, 320, 20, G.g_count);
+        drawMapTiles(*G, &G->g_r_block, G->g_board);
+        FC_Draw(G->font, *G->renderer, 320, 20, G->g_count);
         setRenderOrder(G);
     }
-    else if (G.s_cntdwn) 
-        FC_Draw(G.font, *G.renderer, 320, 20, &G.s_count);
-    else if (G.g_done) 
+    else if (G->s_cntdwn) 
+        FC_Draw(G->font, *G->renderer, 320, 20, &G->s_count);
+    else if (G->g_done) 
     {
-        drawMapTiles(G, &G.g_r_block, G.g_board);
-        FC_Draw(G.font, *G.renderer, 220, 200, G.g_message);
+        drawMapTiles(*G, &G->g_r_block, G->g_board);
+        FC_Draw(G->font, *G->renderer, 220, 200, G->g_message);
     }
     else 
     {
         /*
         for (r = 0; r < 4; r++)
         {
-            if (G.players[r].ready) drawReadyText(G, r);
-            
             // draw player cubes, do i even want them?
             switch (r)
             {
@@ -928,7 +965,30 @@ void renderGame(game G)
         */
     }
     
-    renderScore(G);
+    renderScore(*G);
+}
+
+void renderHostJoin(game G)
+{
+    FC_Draw(G.font, *G.renderer, 220, (W_HEIGHT >> 1) - 60, "'K' to kill game");
+    FC_Draw(G.font, *G.renderer, 220, (W_HEIGHT >> 1) - 20, "'ENTER' to ready up\n or cancel");
+
+    if (G.s_cntdwn) 
+        FC_Draw(G.font, *G.renderer, 320, 20, &G.s_count);
+
+    for (int r = 0; r < 4; r++) 
+    {
+        if (G.players[r].spawned) drawPlayerText(G, r);
+        if (G.players[r].ready) drawReadyText(G, r);
+    }  
+}
+
+void renderMenu(game G)
+{
+    FC_Draw(G.font, *G.renderer, 220, (W_HEIGHT >> 1) - 60, "'H' to host game");
+    FC_Draw(G.font, *G.renderer, 220, (W_HEIGHT >> 1) - 40, "'J' to join game");
+    FC_Draw(G.font, *G.renderer, 220, (W_HEIGHT >> 1) - 20, "'K' to kill game");
+    FC_Draw(G.font, *G.renderer, 220, (W_HEIGHT >> 1), "'ESC' to quit game");
 }
 
 void animatePlayer(player *p)
@@ -938,7 +998,7 @@ void animatePlayer(player *p)
         if (p->atk_counter % 5 == 0)
         {
             p->aindex++;
-            /*
+            /* hitbox for ranged strike
             switch (p->face)
             {
                 case DOWN:
@@ -960,7 +1020,6 @@ void animatePlayer(player *p)
             }
             */
         }
-
         p->atk_counter++;
 
         if (p->atk_counter >= 15)
@@ -1001,39 +1060,76 @@ void animatePlayer(player *p)
             }
         }
     }
+    if (p->face == LEFT) p->c_index = 14 + p->aindex;
+    else p->c_index = (p->face * 7) + p->aindex;
+
+    p->f_flip = (p->face == LEFT ? true : false);
 }
 
 void renderPlayer(game G, player *p)
 {
-    bool flip = (p->face == LEFT ? true : false);
-    int c_index;
-
-    if (p->face == LEFT) c_index = (2 * 7) + p->aindex;
-    else c_index = (p->face * 7) + p->aindex;
-
     if (p->hurt && ((p->hurt_counter % 4) == 0))
     {
         renderTexture(*G.renderer, G.c_texture, 
             p->x - 16, p->y - 30, 
-            &G.c_clips[c_index], flip);
+            &G.c_clips[p->c_index], p->f_flip);
     }
     else if (!p->hurt)
     {
         renderTexture(*G.renderer, G.c_texture, 
             p->x - 16, p->y - 30, 
-            &G.c_clips[c_index], flip);
+            &G.c_clips[p->c_index], p->f_flip);
     }
 }
 
-void setRenderOrder(game G)    // kind of slow?
+void renderPlayerTrail(game g, player *p)
+{
+    bool count = false;
+
+    if ((++p->trail_counter) % 5 == 0) count = true;
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (count)
+        {
+            if (!p->trail[i].run) 
+            {
+                p->trail[i].run = true;
+                p->trail[i].x = p->x;
+                p->trail[i].y = p->y;
+                count = false;
+            }
+        }
+
+        if (p->trail[i].run)
+        {
+            if (--p->trail[i].timer > 0) 
+            {
+                // not the fastest option, 
+                // but does the job for testing
+                SDL_SetTextureAlphaMod(g.c_texture->mTexture, 127);
+                //
+                renderTexture(*g.renderer, g.c_texture, 
+                    p->trail[i].x - 16, p->trail[i].y - 30, 
+                    &g.c_clips[p->c_index], p->f_flip);
+            }
+            else
+            {
+                p->trail[i].run = false;
+                p->trail[i].timer = 10;
+            }
+        }
+    }
+}
+
+void setRenderOrder(game *G)    // kind of slow?
 {
     int order[4];
 
     for (int i = 0; i < 4; i++)
     {
         order[i] = -1;
-        if (G.players[i].spawned) 
-            order[i] = G.players[i].y;
+        if (G->players[i].spawned) order[i] = G->players[i].y;
     }
 
     qsort(order, 4, sizeof(int), sortfunc);
@@ -1044,8 +1140,45 @@ void setRenderOrder(game G)    // kind of slow?
         {
             for (int m = 0; m < 4; m++)
             {
-                if ((G.players[m].y == order[j]) && G.players[m].spawned) 
-                    renderPlayer(G, &G.players[m]);
+                if ((G->players[m].y == order[j]) && G->players[m].spawned) 
+                {
+                    // testing trail while running
+                    if (G->players[m].sprint 
+                    && (G->players[m].xvel || G->players[m].yvel)) 
+                        renderPlayerTrail(*G, &G->players[m]);
+                    else 
+                    {
+                        G->players[m].trail_counter = 0;
+                        // before reset, animate what is left
+                        for (int i = 0; i < 3; i++)
+                        {
+                            if (G->players[m].trail[i].run)
+                            {
+                                if (--G->players[m].trail[i].timer <= 0) 
+                                    resetPlayerTrail(&G->players[m], i);
+                                else
+                                {
+                                    // not the fastest option, 
+                                    // but does the job for testing
+                                    SDL_SetTextureAlphaMod(G->c_texture->mTexture, 127);
+                                    //
+                                    renderTexture(*G->renderer, G->c_texture, 
+                                        G->players[m].trail[i].x - 16, 
+                                        G->players[m].trail[i].y - 30, 
+                                        &G->c_clips[G->players[m].c_index], 
+                                        G->players[m].f_flip);
+                                }
+                            }
+                            else resetPlayerTrail(&G->players[m], i);
+                        }
+                    }
+                    // sets the alpha back to normal
+                    // not the fastest option, 
+                    // but does the job for testing
+                    SDL_SetTextureAlphaMod(G->c_texture->mTexture, 255);
+                    //
+                    renderPlayer(*G, &G->players[m]);
+                }
             }
         }
     }
@@ -1094,7 +1227,6 @@ void resetScore(g_rules *r) // make this complete !!!
             case 3: resetScoreBuffer(r->p4_buf); break;
         }
     }
-    
     r->p1_score = 0;
     r->p2_score = 0;
     r->p3_score = 0;
@@ -1165,6 +1297,18 @@ void resetPlayerState(player *p)
     p->hurt = false;
 }
 
+void resetPlayerTrail(player *p, int i)
+{
+    //p->trail_counter = 0;
+    //for (int i = 0; i < 3; i++)
+    //{
+        p->trail[i].run = false;
+        p->trail[i].timer = 10;
+        p->trail[i].x = p->x;
+        p->trail[i].y = p->y;
+    //}
+}
+
 void renderScore(game G)
 {
     //p1
@@ -1184,11 +1328,11 @@ void drawMapTiles(game G, SDL_Rect *block, unsigned char (*map_blocks)[32])
     {
         for (x = 0; x < 32; x++)
         {
-            block->x = x * 20;
-            block->y = y * 20;
-
             if (map_blocks[y][x])
             {
+                block->x = x * 20;
+                block->y = y * 20;
+
                 switch (map_blocks[y][x])
                 {
                     case 1: SDL_SetRenderDrawColor(*G.renderer, 0x00, 0x00, 0xff, 0xff); 
@@ -1223,6 +1367,25 @@ void drawReadyText(game G, int r)
         break;
         case 3:
             FC_Draw(G.font, *G.renderer, W_WIDTH - 100, W_HEIGHT - 60, "Ready!");
+        break;
+    }
+}
+
+void drawPlayerText(game G, int r)
+{
+    switch (r)
+    {
+        case 0:
+            FC_Draw(G.font, *G.renderer, 20, 20, "P1");
+        break;
+        case 1:
+            FC_Draw(G.font, *G.renderer, W_WIDTH - 100, 20, "P2");
+        break;
+        case 2:
+            FC_Draw(G.font, *G.renderer, 20, W_HEIGHT - 80, "P3");
+        break;
+        case 3:
+            FC_Draw(G.font, *G.renderer, W_WIDTH - 100, W_HEIGHT - 80, "P4");
         break;
     }
 }
@@ -1294,36 +1457,16 @@ int setup_server(void *ptr)
                     G->c_player = &G->players[PLAYER1];
                     G->c_player->nid = nw->sockfd;
                     G->c_player->spawned = true;
+                    G->state = HOST;
                     host_loop(G);
                 }
             }
         }
     }
 
-	// Accept the data packet from client and verification
-    /*
-	nw->connfd = accept(nw->sockfd, (struct sockaddr*)&nw->cli, &nw->addrlen);
-	if (nw->connfd < 0) {
-		printf("server acccept failed...\n");
-	}
-	else
-    {
-        printf("server acccept the client...\n");
-
-        // just for testing !!!
-        G->players[PLAYER2].nid = nw->connfd;
-        G->players[PLAYER1].spawned = true;
-        G->players[PLAYER2].spawned = true;
-
-        host_loop(G);
-        G->host = false;
-        G->kill = false;
-    }
-    */
-
     close(G->nw.sockfd);
     close(G->nw.connfd);
-    bzero(G->nw.pfds, sizeof(struct pollfd) * 4);
+    bzero(G->nw.pfds, (sizeof(struct pollfd) << 2));
     
     G->state = MENU;
     G->host = false;
@@ -1459,6 +1602,15 @@ void host_loop(game *G)
                         removePlayerSlot(G->players, G->nw.pfds[p].fd);
                         G->nw.pfds[p] = G->nw.pfds[fd_counter - 1];
                         fd_counter--;
+                        if (fd_counter == 1 && G->state == PLAY)
+                        {
+                            G->c_player->ready = false;
+                            G->g_ready = false;
+                            G->s_cntdwn = false;
+                            G->g_cntdwn = false;
+                            resetTimer(G);
+                            G->state = HOST;
+                        }
                     }
                     else
                     {
@@ -1480,18 +1632,21 @@ void host_loop(game *G)
         }
 
         //  check if all connected players are ready
-        if (!G->g_ready && checkPlayerReady(G->players))
+        if (G->state != PLAY)
         {
-            printf("all players ready\n");
-            G->g_ready = true;
-            G->s_cntdwn = true;
-        }
-        else if (G->g_ready && !checkPlayerReady(G->players))
-        {
-            printf("player(s) not ready\n");
-            G->g_ready = false;
-            G->s_cntdwn = false;
-            resetTimer(G);
+            if (!G->g_ready && checkPlayerReady(G->players))
+            {
+                printf("all players ready\n");
+                G->g_ready = true;
+                G->s_cntdwn = true;
+            }
+            else if (G->g_ready && !checkPlayerReady(G->players))
+            {
+                printf("player(s) not ready\n");
+                G->g_ready = false;
+                G->s_cntdwn = false;
+                resetTimer(G);
+            }
         }
 
         h_player_update(send_buf, G->players);
@@ -1560,7 +1715,7 @@ void client_loop(game *G)
 
         buffer[0] = G->nw.connfd;
 
-        if (G->c_player != NULL)
+        if (G->c_player != NULL && G->c_player->ready)
         { 
             buffer[1] = G->c_player->x;
             buffer[2] = G->c_player->y;
@@ -1601,7 +1756,10 @@ void client_loop(game *G)
                     {
                         if (down_buf[(i * NW_P_SIZE)] == G->nw.connfd 
                         && G->c_player == NULL) 
+                        {
                             G->c_player = &G->players[i];
+                            G->state = JOIN;
+                        }
                         G->players[i].nid = down_buf[(i * NW_P_SIZE)];
                         G->players[i].spawned = true;
                     }
@@ -1638,9 +1796,9 @@ void c_player_update(game *G, int i, short *buffer)
     G->players[i].nextmove.y = buffer[(i * NW_P_SIZE) + 2];
     G->players[i].nextmove.attacking = buffer[(i * NW_P_SIZE) + 3];
     G->players[i].nextmove.atk_counter = buffer[(i * NW_P_SIZE) + 4];
-    
+
     if (G->c_player != &G->players[i]) 
-        G->players[i].ready = buffer[(i * NW_P_SIZE) + 5];
+        G->players[i].ready = buffer[(i * NW_P_SIZE) + 5];  
 }
 
 void h_player_update(short *buffer, player *players)
@@ -1694,8 +1852,8 @@ void client_sync(game *G, short *buffer)
         bzero(G->g_board, 32*24);
         resetPlayers(G->players);
         resetScore(&G->rules);
-        G->state = MENU;
         G->g_done = false;
+        G->state = JOIN;
     }
     else 
     {
@@ -1770,8 +1928,8 @@ void host_countdown(game *G, int *winner)
             resetScore(&G->rules);
             G->rules.g_timer = 300;
             G->s_count = 53;
-            G->state = MENU;
             G->g_done = false;
+            G->state = HOST;
         }
     }
 }

@@ -88,8 +88,12 @@ int main(int argc, char const *argv[])
                         renderMenu(GAME);
                     break;
                     case HOST:
+                        hostInput(e, &GAME);
+                        renderHostJoin(GAME);
                     break;
                     case JOIN:
+                        joinInput(e, &GAME);
+                        renderHostJoin(GAME);
                     break;
                     case PLAY:
                         playInput(e, &GAME);
@@ -120,7 +124,7 @@ int main(int argc, char const *argv[])
                             */
                         }
 
-                        renderGame(GAME);
+                        renderGame(&GAME);
                     break;
                 }
 

@@ -122,9 +122,17 @@ typedef struct p_cube
     unsigned char xvel, yvel, plr;
 } p_cube;
 
+typedef struct p_trail
+{
+    int x, y;
+    unsigned char timer;
+    bool run:1;
+} p_trail;
+
 typedef struct player
 {
     SDL_Rect *clips, a_hitBox;
+    p_trail trail[3];
     p_next nextmove;
     p_cube cube;
     int w, h, 
@@ -136,12 +144,14 @@ typedef struct player
 
     unsigned char   input, 
                     acounter, aindex, 
+                    c_index,
                     atk_counter, 
                     i_queue[Q_SIZE],
                     hurt_counter,
-                    push_counter;
+                    push_counter,
+                    trail_counter;
                     
-    bool blocked:1, attacking:1, a_hold:1, 
+    bool blocked:1, attacking:1, a_hold:1, f_flip:1, 
          sprint:1, spawned:1, ready:1, hurt:1;
 } player;
 
@@ -181,6 +191,8 @@ void checkPlayerAtkCol(player *);
 
 bool checkPlayerReady(player *);
 
+void hostInput(SDL_Event, game *);
+void joinInput(SDL_Event, game *);
 void menuInput(SDL_Event, game *, thrd_t *nw_thread);
 void playInput(SDL_Event, game *);
 
@@ -199,18 +211,22 @@ void subPlayerScore(char *);
 
 void setMapTColor(SDL_Renderer *r, player p);
 
+void renderGame(game *);
+void renderHostJoin(game);
 void renderMenu(game);
-void renderGame(game);
 
 void animatePlayer(player *);
 void playerWalking(void);
 void playerAttacking(void);
 void renderPlayer(game, player *);
+void renderPlayerTrail(game, player *);
 
-void setRenderOrder(game);
+void setRenderOrder(game *);
 void renderScore(game);
+
 void drawMapTiles(game G, SDL_Rect *block, unsigned char (*map_blocks)[]);
 void drawReadyText(game G, int r);
+void drawPlayerText(game G, int r);
 
 int decideWinner(game);
 
@@ -221,6 +237,7 @@ void resetScoreBuffer(char []);
 void resetPlayers(player []);
 void resetPlayerTimers(player *);
 void resetPlayerState(player *);
+void resetPlayerTrail(player *, int i);
 
 void enqueue(unsigned char *q, unsigned char val);
 void dequeue(unsigned char *q, unsigned char val);
